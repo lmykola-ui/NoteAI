@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { QuickPreview } from "@/components/preview/QuickPreview";
+import { VoiceRecorder } from "@/components/capture/VoiceRecorder";
 import { parseText } from "@/features/capture/application/parseClient";
 import {
   clearCaptureDraft,
@@ -10,7 +11,10 @@ import {
 } from "@/features/capture/infrastructure/draftStore";
 import { useTasks } from "@/features/tasks/application/TaskProvider";
 import { toLocalDateKey } from "@/features/tasks/domain/dateWindow";
-import type { ParseResult } from "@/features/tasks/domain/task";
+import type {
+  InputMethod,
+  ParseResult,
+} from "@/features/tasks/domain/task";
 
 type CaptureState =
   | { kind: "editing" }
@@ -59,21 +63,29 @@ export function CaptureScreen() {
       .catch(() => undefined);
   }
 
-  async function parseCapture() {
-    if (!text.trim()) return;
+  async function parseCapture(
+    inputMethod: InputMethod = "text",
+    captureText = text,
+  ) {
+    if (!captureText.trim()) return;
 
     setCaptureState({ kind: "parsing" });
     try {
       const result = await parseText({
-        text,
+        text: captureText,
         today: toLocalDateKey(new Date()),
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        inputMethod: "text",
+        inputMethod,
       });
       setCaptureState({ kind: "preview", result });
     } catch {
       setCaptureState({ kind: "error", message: parseErrorMessage });
     }
+  }
+
+  async function handleTranscript(transcript: string) {
+    changeText(transcript);
+    await parseCapture("voice", transcript);
   }
 
   async function confirmTasks(tasks: ParseResult["tasks"]) {
@@ -132,7 +144,7 @@ export function CaptureScreen() {
   return (
     <section aria-label="Створення нотатки" className="capture-screen">
       <h1>Що в голові?</h1>
-      <p>Напишіть усе підряд, а ми перетворимо це на задачі.</p>
+      <p>Напишіть або скажіть усе підряд, а ми перетворимо це на задачі.</p>
       <label className="capture-input">
         Ваша нотатка
         <textarea
@@ -143,6 +155,7 @@ export function CaptureScreen() {
           disabled={isParsing}
         />
       </label>
+      {isParsing ? null : <VoiceRecorder onTranscript={handleTranscript} />}
       {captureState.kind === "error" ? (
         <p role="alert" className="capture-error">
           {captureState.message}
@@ -151,7 +164,7 @@ export function CaptureScreen() {
       <button
         type="button"
         className="primary-button"
-        onClick={parseCapture}
+        onClick={() => parseCapture()}
         disabled={isParsing || !text.trim()}
       >
         {isParsing ? "Аналізуємо…" : "Розібрати"}
