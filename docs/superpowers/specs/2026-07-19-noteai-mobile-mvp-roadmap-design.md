@@ -67,6 +67,7 @@ The bottom navigation has three destinations:
 
 - Contains active tasks with no date.
 - Contains dated tasks outside the rolling seven-day Plan window, with their date visible.
+- Contains active tasks with a past date, marked as overdue, so they are never hidden or dropped.
 - Allows editing, deletion, completion, and manual assignment to a day in the visible window.
 - Contains a simple completed section so completed tasks can be restored without adding a separate top-level screen.
 
@@ -105,6 +106,7 @@ Rules:
 - A date within today plus six days routes to the matching Plan day.
 - No date routes to Inbox.
 - A date beyond the seven-day window remains visible in Inbox until it enters the window.
+- A past date routes to Inbox and is presented as overdue.
 - Ambiguous wording produces a short clarification instead of invented data.
 - A completed statement such as `рахунок я вже оплатив` creates a completed preview item.
 
