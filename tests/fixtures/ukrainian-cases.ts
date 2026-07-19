@@ -2,7 +2,7 @@ import type { ParseResult, TaskDraft } from "@/features/tasks/domain/task";
 
 type ModelTask = Omit<TaskDraft, "inputMethod">;
 
-export type UkrainianAcceptanceCase = {
+export type UkrainianParserContractCase = {
   name: string;
   input: string;
   today: string;
@@ -13,9 +13,9 @@ export type UkrainianAcceptanceCase = {
   expected: ParseResult;
 };
 
-function acceptanceCase(
-  definition: Omit<UkrainianAcceptanceCase, "expected">,
-): UkrainianAcceptanceCase {
+function parserContractCase(
+  definition: Omit<UkrainianParserContractCase, "expected">,
+): UkrainianParserContractCase {
   return {
     ...definition,
     expected: {
@@ -28,8 +28,8 @@ function acceptanceCase(
   };
 }
 
-export const ukrainianAcceptanceCases = [
-  acceptanceCase({
+export const ukrainianParserContractCases = [
+  parserContractCase({
     name: "splits today, tomorrow, and completed language",
     input:
       "Молоко купити сьогодні, пошту глянути завтра, а рахунок я вже оплатив",
@@ -61,7 +61,7 @@ export const ukrainianAcceptanceCases = [
       clarification: null,
     },
   }),
-  acceptanceCase({
+  parserContractCase({
     name: "resolves a Ukrainian time phrase without inventing priority",
     input: "Подзвони лікарю сьогодні до п’ятої",
     today: "2026-07-19",
@@ -78,7 +78,7 @@ export const ukrainianAcceptanceCases = [
       clarification: null,
     },
   }),
-  acceptanceCase({
+  parserContractCase({
     name: "resolves an explicit weekday and clock time",
     input: "У понеділок о 09:30 перевірити пошту",
     today: "2026-07-19",
@@ -95,7 +95,7 @@ export const ukrainianAcceptanceCases = [
       clarification: null,
     },
   }),
-  acceptanceCase({
+  parserContractCase({
     name: "keeps an undated task undated",
     input: "Купити лампочку",
     today: "2026-07-19",
@@ -112,7 +112,7 @@ export const ukrainianAcceptanceCases = [
       clarification: null,
     },
   }),
-  acceptanceCase({
+  parserContractCase({
     name: "preserves an explicit high priority",
     input: "Терміново продовжити домен, високий пріоритет",
     today: "2026-07-19",
@@ -129,7 +129,7 @@ export const ukrainianAcceptanceCases = [
       clarification: null,
     },
   }),
-  acceptanceCase({
+  parserContractCase({
     name: "asks once instead of inventing an ambiguous date",
     input: "Заплануй зустріч якось потім",
     today: "2026-07-19",
@@ -138,7 +138,7 @@ export const ukrainianAcceptanceCases = [
       clarification: "Коли саме запланувати зустріч?",
     },
   }),
-  acceptanceCase({
+  parserContractCase({
     name: "keeps a date inside the seven-day plan window",
     input: "У суботу здати звіт",
     today: "2026-07-19",
@@ -155,7 +155,7 @@ export const ukrainianAcceptanceCases = [
       clarification: null,
     },
   }),
-  acceptanceCase({
+  parserContractCase({
     name: "keeps a date outside the seven-day plan window",
     input: "Через вісім днів поновити страховку",
     today: "2026-07-19",
@@ -172,7 +172,7 @@ export const ukrainianAcceptanceCases = [
       clarification: null,
     },
   }),
-  acceptanceCase({
+  parserContractCase({
     name: "recognizes completed language without inventing a date",
     input: "Я вже забрав посилку",
     today: "2026-07-19",
@@ -189,7 +189,7 @@ export const ukrainianAcceptanceCases = [
       clarification: null,
     },
   }),
-  acceptanceCase({
+  parserContractCase({
     name: "resolves a colloquial half-hour time phrase",
     input: "Наступної середи о пів на десяту зателефонувати Олені",
     today: "2026-07-19",
@@ -206,4 +206,4 @@ export const ukrainianAcceptanceCases = [
       clarification: null,
     },
   }),
-] satisfies UkrainianAcceptanceCase[];
+] satisfies UkrainianParserContractCase[];

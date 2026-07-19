@@ -7,6 +7,7 @@ import type {
   ParseResult,
 } from "@/features/tasks/domain/task";
 import { createOpenAIClient, taskModel } from "./client";
+import { taskSystemPrompt } from "./taskPrompt.mjs";
 
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 const localTimePattern = /^\d{2}:\d{2}$/;
@@ -86,11 +87,6 @@ const aiResultSchema = z.object({
 type ParseRequest = z.infer<typeof parseTaskRequestSchema>;
 type ParserClient = Pick<OpenAI, "responses">;
 
-const systemPrompt = `Ти аналізуєш українські нотатки та повертаєш лише структуровані задачі.
-Використовуй передану локальну дату як основу для “сьогодні” і “завтра”.
-Не вигадуй дату, час, статус або пріоритет. Якщо дія справді неоднозначна, поверни одне коротке уточнення.
-Розділяй кілька справ на окремі задачі. Фраза про вже зроблену справу має status=completed.`;
-
 export async function parseTasksWithClient(
   client: ParserClient,
   request: ParseRequest,
@@ -99,7 +95,7 @@ export async function parseTasksWithClient(
     {
       model: taskModel,
       input: [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: taskSystemPrompt },
         {
           role: "user",
           content: `Локальна дата: ${request.today}\nЧасовий пояс: ${request.timeZone}\nНотатка: ${request.text}`,

@@ -171,7 +171,10 @@ test("keeps local tasks usable while AI is offline", async ({
   const supportsOfflineReload = await page.evaluate(
     () => "serviceWorker" in navigator && "caches" in window,
   );
-  test.skip(!supportsOfflineReload, "This browser does not support offline shell caching");
+  expect(
+    supportsOfflineReload,
+    "The mandated mobile E2E projects must support ServiceWorker and CacheStorage",
+  ).toBe(true);
   await expect(page.locator("html")).toHaveAttribute("data-offline-ready", "true");
 
   await context.setOffline(true);

@@ -43,12 +43,12 @@ export function scanRepository() {
     if (text.includes("\0")) continue;
 
     for (const match of findOpenAiSecrets(text)) {
-      secrets.push(`${file}:${lineNumberAt(text, match.index)}`);
+      secrets.push(`${file}:${lineNumberAt(text, match.index)}:[REDACTED]`);
     }
 
     text.split("\n").forEach((line, index) => {
       if (line.includes("OPENAI_API_KEY")) {
-        references.push(`${file}:${index + 1}:${line.trim()}`);
+        references.push(`${file}:${index + 1}:[REDACTED]`);
       }
     });
   }

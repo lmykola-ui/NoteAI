@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
+import { makeTask } from "../../../../tests/fixtures/taskFactory";
 import type { Task, TaskDraft } from "../domain/task";
 import type { TaskRepository } from "../infrastructure/TaskRepository";
 import { TaskProvider, useTasks } from "./TaskProvider";
@@ -59,6 +60,22 @@ it("materializes and persists confirmed drafts", async () => {
 
   expect(result.current.tasks).toHaveLength(1);
   expect(saved).toHaveLength(1);
+});
+
+it("signals offline initialization after hydrating existing tasks", async () => {
+  const existingTask = makeTask({ title: "Вже збережена задача" });
+  const { repository } = createRepository([existingTask]);
+  const onLocalDataReady = vi.fn();
+  window.addEventListener("noteai:local-data-ready", onLocalDataReady);
+
+  const { result, unmount } = renderTasks(repository);
+
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  expect(result.current.tasks).toEqual([existingTask]);
+  expect(onLocalDataReady).toHaveBeenCalledOnce();
+
+  unmount();
+  window.removeEventListener("noteai:local-data-ready", onLocalDataReady);
 });
 
 it("keeps drafts added before a stale initial load resolves", async () => {

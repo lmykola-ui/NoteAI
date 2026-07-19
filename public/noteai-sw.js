@@ -1,4 +1,14 @@
 const SHELL_CACHE = "noteai-shell-v1";
+const PUBLIC_ASSET_PATHS = new Set(["/noteai-sw.js"]);
+
+function isAllowedShellUrl(url) {
+  return (
+    url.origin === self.location.origin &&
+    (url.pathname === "/" ||
+      url.pathname.startsWith("/_next/static/") ||
+      PUBLIC_ASSET_PATHS.has(url.pathname))
+  );
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
@@ -27,13 +37,12 @@ self.addEventListener("fetch", (event) => {
 
   if (
     request.method !== "GET" ||
-    url.origin !== self.location.origin ||
-    url.pathname.startsWith("/api/")
+    !isAllowedShellUrl(url)
   ) {
     return;
   }
 
-  if (request.mode === "navigate") {
+  if (request.mode === "navigate" && url.pathname === "/") {
     event.respondWith(
       fetch(request)
         .then(async (response) => {

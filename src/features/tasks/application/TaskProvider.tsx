@@ -77,9 +77,13 @@ export function TaskProvider({
       .then((loaded) => {
         if (cancelled) return;
 
-        setTasks(applyPendingMutations(loaded, pendingMutations.current));
+        const hydrated = applyPendingMutations(loaded, pendingMutations.current);
+        setTasks(hydrated);
         initialLoadComplete.current = true;
         pendingMutations.current = [];
+        if (hydrated.length > 0) {
+          window.dispatchEvent(new Event("noteai:local-data-ready"));
+        }
       })
       .catch(() => {
         if (!cancelled) setError("Не вдалося відкрити локальні задачі");

@@ -60,7 +60,47 @@ then runs the acceptance suite in both `mobile-chrome` (Pixel 7) and
 `mobile-safari` (iPhone 14) projects. The deploy-like server is required for a
 stable offline-shell reload because the development server's hot-reload client
 intentionally reconnects to the network. API parsing is stubbed in browser
-tests, so the E2E suite does not spend OpenAI quota or require a real key.
+tests, so the E2E suite and the ten-case mocked parser-contract test do not
+measure Ukrainian model quality, spend OpenAI quota, or require a real key.
+
+### Required Ukrainian model gate
+
+Before promoting a Preview deployment, run the opt-in, model-backed evaluation:
+
+```bash
+OPENAI_API_KEY=your_server_only_project_key pnpm eval:ukrainian:model
+```
+
+This paid command is intentionally excluded from `pnpm test` and the default
+local gate. It calls `OPENAI_TASK_MODEL` (default `gpt-5.6-terra`) once for each
+of the ten inputs below using the production system prompt and structured-output
+shape. It must report `10/10 Ukrainian model cases passed.` before promotion.
+Do not treat the mocked parser-contract test or stubbed Playwright API responses
+as a substitute.
+
+The evaluator requires exact task count/order, dates, times, status, priority,
+and null-vs-present clarification. Titles may vary only in grammar while still
+containing every listed concept (one listed synonym per slash-separated group).
+The ambiguity case must return zero tasks and one trimmed clarification of
+5-300 characters.
+
+| # | Exact input (`today=2026-07-19`, `Europe/Warsaw`) | Required result |
+|---|---|---|
+| 1 | `Молоко купити сьогодні, пошту глянути завтра, а рахунок я вже оплатив` | 3 tasks in order: buy+milk, active `2026-07-19`; check/look+mail, active `2026-07-20`; pay+bill, completed and undated. All times/priorities null; clarification null. |
+| 2 | `Подзвони лікарю сьогодні до п’ятої` | 1 call/phone+doctor task, active, `2026-07-19` `17:00`, priority null; clarification null. |
+| 3 | `У понеділок о 09:30 перевірити пошту` | 1 check+mail task, active, `2026-07-20` `09:30`, priority null; clarification null. |
+| 4 | `Купити лампочку` | 1 buy+lightbulb task, active and undated, time/priority null; clarification null. |
+| 5 | `Терміново продовжити домен, високий пріоритет` | 1 renew/extend+domain task, active, high priority, date/time null; clarification null. |
+| 6 | `Заплануй зустріч якось потім` | 0 tasks; one 5-300 character clarification question. |
+| 7 | `У суботу здати звіт` | 1 submit+report task, active, `2026-07-25`, time/priority null; clarification null. |
+| 8 | `Через вісім днів поновити страховку` | 1 renew+insurance task, active, `2026-07-27`, time/priority null; clarification null. |
+| 9 | `Я вже забрав посилку` | 1 collect/receive+parcel task, completed and undated, time/priority null; clarification null. |
+| 10 | `Наступної середи о пів на десяту зателефонувати Олені` | 1 call/phone+Olena task, active, `2026-07-22` `09:30`, priority null; clarification null. |
+
+Run these same exact inputs through the deployed Preview UI and inspect the
+editable Preview results on physical mobile Chrome and Safari. Both devices
+must satisfy the table before promotion; record any model failure even when the
+local mocked contract and browser tests pass.
 
 ## Vercel release runbook
 
@@ -85,6 +125,8 @@ These checks require a deployed Preview URL and physical devices; they are not s
 - Confirmed tasks survive browser close and reopen in the same browser profile.
 - Overdue and later-future tasks remain visible in Inbox.
 - Existing local tasks remain usable offline.
+- An existing IndexedDB user who opens the new version without confirming a new
+  Capture receives the offline shell after task hydration.
 - No raw note, transcript, task title, date, audio, or API key appears in analytics or browser network logs.
 
 Do not promote the release until both physical-device checks pass.

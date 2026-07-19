@@ -3,18 +3,23 @@
 import { useEffect } from "react";
 
 const shellCacheName = "noteai-shell-v1";
+const publicAssetPaths = new Set(["/noteai-sw.js"]);
+
+function isAllowedShellUrl(resourceUrl: string): boolean {
+  const url = new URL(resourceUrl);
+  return (
+    url.origin === window.location.origin &&
+    (url.pathname === "/" ||
+      url.pathname.startsWith("/_next/static/") ||
+      publicAssetPaths.has(url.pathname))
+  );
+}
 
 async function cacheCurrentShell(): Promise<void> {
   const resourceUrls = performance
     .getEntriesByType("resource")
     .map((entry) => entry.name)
-    .filter((resourceUrl) => {
-      const url = new URL(resourceUrl);
-      return (
-        url.origin === window.location.origin &&
-        !url.pathname.startsWith("/api/")
-      );
-    });
+    .filter(isAllowedShellUrl);
   const urls = [...new Set([window.location.origin + "/", ...resourceUrls])];
   const cache = await caches.open(shellCacheName);
 

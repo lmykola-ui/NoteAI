@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ukrainianAcceptanceCases } from "../../../tests/fixtures/ukrainian-cases";
+import { ukrainianParserContractCases } from "../../../tests/fixtures/ukrainian-cases";
 import { parseTasksWithClient } from "./parseTasks";
 
 vi.mock("server-only", () => ({}));
@@ -9,12 +9,12 @@ vi.mock("./client", () => ({
 }));
 
 describe("parseTasksWithClient", () => {
-  it("keeps the canonical Ukrainian acceptance set at ten cases", () => {
-    expect(ukrainianAcceptanceCases).toHaveLength(10);
+  it("keeps the mocked Ukrainian parser contract at ten cases", () => {
+    expect(ukrainianParserContractCases).toHaveLength(10);
   });
 
-  it.each(ukrainianAcceptanceCases)(
-    "honors acceptance case: $name",
+  it.each(ukrainianParserContractCases)(
+    "honors mocked parser contract: $name",
     async ({ input, today, modelOutput, expected }) => {
       const parse = vi.fn().mockResolvedValue({ output_parsed: modelOutput });
       const client = {
