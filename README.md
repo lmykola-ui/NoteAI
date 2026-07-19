@@ -149,7 +149,7 @@ IndexedDB is the MVP source of truth. Tasks are available only on the same domai
 
 Before a public release, configure Vercel Firewall per-IP rate limits:
 
-- `/api/parse`: 20 requests per minute;
+- `/api/parse-note`: 20 requests per minute;
 - `/api/transcribe`: 10 requests per minute.
 
 Scope each rule to the exact route and method used by the application. Verify the rules in both Preview (without blocking the release test) and Production. Keep the OpenAI project monthly budget and usage alerts enabled. Application request-size and timeout limits reduce abuse impact but do not replace provider budget controls.

@@ -64,7 +64,7 @@ it("intercepts only the root shell and explicit Next static assets", () => {
   const handleFetch = loadFetchHandler();
   const root = request("/", "navigate");
   const staticAsset = request("/_next/static/chunks/app.js");
-  const api = request("/api/parse");
+  const api = request("/api/parse-note");
 
   handleFetch(root);
   handleFetch(staticAsset);

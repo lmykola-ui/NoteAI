@@ -31,6 +31,21 @@ it("does not cross the parse fetch boundary while offline", async () => {
   expect(fetchMock).not.toHaveBeenCalled();
 });
 
+it("posts parsing requests to the canonical parse-note endpoint", async () => {
+  const fetchMock = vi.fn().mockResolvedValue({
+    ok: true,
+    json: vi.fn().mockResolvedValue({ tasks: [], clarification: null }),
+  } as unknown as Response);
+  vi.stubGlobal("fetch", fetchMock);
+
+  await parseText(request);
+
+  expect(fetchMock).toHaveBeenCalledWith(
+    "/api/parse-note",
+    expect.objectContaining({ method: "POST" }),
+  );
+});
+
 it("aborts a pending parse request immediately on an offline event", async () => {
   const fetchMock = vi.fn((_url: string, options: RequestInit) =>
     new Promise<Response>((_resolve, reject) => {

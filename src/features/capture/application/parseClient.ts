@@ -15,7 +15,7 @@ export async function parseText(input: {
   const onlineRequest = beginOnlineRequest();
   try {
     assertOnline();
-    const response = await fetch("/api/parse", {
+    const response = await fetch("/api/parse-note", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(input),

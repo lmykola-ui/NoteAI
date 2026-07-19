@@ -28,7 +28,7 @@ async function reloadOffline(page: Page, browserName: string): Promise<void> {
 test("captures multiple domain-rich tasks, confirms preview, and survives reload", async ({
   page,
 }) => {
-  await page.route("**/api/parse", async (route) => {
+  await page.route("**/api/parse-note", async (route) => {
     const request = route.request().postDataJSON() as ParseRequest;
 
     await route.fulfill({
@@ -114,7 +114,7 @@ test("captures multiple domain-rich tasks, confirms preview, and survives reload
 });
 
 test("shows an ambiguity clarification without inventing tasks", async ({ page }) => {
-  await page.route("**/api/parse", async (route) =>
+  await page.route("**/api/parse-note", async (route) =>
     route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -182,7 +182,7 @@ test("transcribes voice into editable text and parses only after explicit confir
       body: JSON.stringify({ text: "Купити молоко сьогодні" }),
     }),
   );
-  await page.route("**/api/parse", async (route) => {
+  await page.route("**/api/parse-note", async (route) => {
     parseRequests += 1;
     const request = route.request().postDataJSON() as ParseRequest & {
       inputMethod: string;
@@ -231,7 +231,7 @@ test("keeps local tasks usable while AI is offline", async ({
   context,
   browserName,
 }) => {
-  await page.route("**/api/parse", async (route) =>
+  await page.route("**/api/parse-note", async (route) =>
     route.fulfill({
       status: 200,
       contentType: "application/json",

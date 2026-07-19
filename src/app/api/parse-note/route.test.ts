@@ -27,7 +27,7 @@ const validBody = {
 };
 
 function requestWithBody(body: string) {
-  return new Request("http://localhost/api/parse", {
+  return new Request("http://localhost/api/parse-note", {
     method: "POST",
     body,
   });
@@ -37,7 +37,7 @@ async function loadPost() {
   return (await import("./route")).POST;
 }
 
-describe("POST /api/parse", () => {
+describe("POST /api/parse-note", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.stubEnv("OPENAI_API_KEY", "test-key");
