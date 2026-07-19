@@ -35,3 +35,21 @@ button, textarea, input { font: inherit; }
 .clarification, .capture-error { margin: 0; padding: 12px; border-radius: 12px; }
 .clarification { color: #ffe39b; background: #4b3b1e; }
 .capture-error { color: #ffc0bd; background: #4f292d; }
+.task-screen { display: grid; gap: 16px; }
+.task-screen h1 { margin: 0; font-size: 2rem; }
+.task-list { display: grid; gap: 12px; }
+.task-card { display: grid; gap: 10px; padding: 16px; border-radius: var(--radius-card); background: var(--color-surface); }
+.task-card-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.task-card-heading h2 { margin: 0; font-size: 1.1rem; }
+.task-card-heading span, .task-overdue { color: #ffc0bd; }
+.task-meta, .empty-state { margin: 0; color: var(--color-muted); }
+.task-overdue { margin: 0; font-weight: 700; }
+.task-card-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.task-edit-form { display: grid; gap: 12px; }
+.task-edit-form label { display: grid; gap: 6px; color: var(--color-muted); }
+.task-edit-form input, .task-edit-form select { width: 100%; border: 1px solid #3b4352; border-radius: 12px; padding: 10px; color: var(--color-text); background: var(--color-bg); }
+.completed-tasks { display: grid; gap: 12px; }
+.completed-tasks summary { cursor: pointer; color: var(--color-muted); }
+.plan-dates { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.plan-date-button { flex: 0 0 auto; border: 1px solid #3b4352; border-radius: 12px; padding: 10px 12px; color: var(--color-muted); background: var(--color-surface); }
+.plan-date-button[aria-pressed="true"] { border-color: var(--color-accent); color: var(--color-text); }
