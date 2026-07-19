@@ -16,6 +16,7 @@ class MockMediaRecorder {
 
   state: RecordingState = "inactive";
   mimeType = "audio/webm;codecs=opus";
+  deferStopEvent = false;
   ondataavailable: ((event: BlobEvent) => void) | null = null;
   onerror: ((event: Event) => void) | null = null;
   onstop: ((event: Event) => void) | null = null;
@@ -24,7 +25,7 @@ class MockMediaRecorder {
   });
   stop = vi.fn(() => {
     this.state = "inactive";
-    this.onstop?.(new Event("stop"));
+    if (!this.deferStopEvent) this.emitStop();
   });
 
   constructor() {
@@ -33,6 +34,14 @@ class MockMediaRecorder {
 
   emitChunk(data: Blob) {
     this.ondataavailable?.({ data } as BlobEvent);
+  }
+
+  emitError() {
+    this.onerror?.(new Event("error"));
+  }
+
+  emitStop() {
+    this.onstop?.(new Event("stop"));
   }
 }
 
@@ -158,6 +167,75 @@ it("allows a fresh recording after transcription fails", async () => {
 
   await waitFor(() => expect(onTranscript).toHaveBeenCalledWith("Перевірити пошту"));
   expect(getUserMedia).toHaveBeenCalledTimes(2);
+});
+
+it("keeps retry resources isolated from delayed callbacks of a failed recording", async () => {
+  vi.useFakeTimers();
+  const firstTrack = { stop: vi.fn() } as unknown as MediaStreamTrack;
+  const secondTrack = { stop: vi.fn() } as unknown as MediaStreamTrack;
+  const getUserMedia = vi
+    .fn()
+    .mockResolvedValueOnce({
+      getTracks: vi.fn().mockReturnValue([firstTrack]),
+    } as unknown as MediaStream)
+    .mockResolvedValueOnce({
+      getTracks: vi.fn().mockReturnValue([secondTrack]),
+    } as unknown as MediaStream);
+  vi.stubGlobal("navigator", { mediaDevices: { getUserMedia } });
+  vi.stubGlobal("MediaRecorder", MockMediaRecorder);
+  transcriptionMocks.request.mockResolvedValue("Купити хліб");
+  const onTranscript = vi.fn();
+  render(<VoiceRecorder onTranscript={onTranscript} />);
+
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Почати запис" }));
+    await Promise.resolve();
+  });
+  const firstRecorder = MockMediaRecorder.instances[0];
+  firstRecorder.mimeType = "audio/mp4";
+  firstRecorder.deferStopEvent = true;
+  act(() => firstRecorder.emitError());
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "Не вдалося розпізнати нотатку",
+  );
+
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Спробувати ще раз" }));
+    await Promise.resolve();
+  });
+  const secondRecorder = MockMediaRecorder.instances[1];
+  secondRecorder.emitChunk(
+    new Blob(["second-session"], { type: "audio/webm" }),
+  );
+
+  act(() => {
+    firstRecorder.emitChunk(new Blob(["stale"], { type: "audio/mp4" }));
+    firstRecorder.emitStop();
+    firstRecorder.emitError();
+  });
+
+  expect(secondRecorder.state).toBe("recording");
+  expect(secondTrack.stop).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: "Зупинити запис" })).toBeEnabled();
+  expect(transcriptionMocks.request).not.toHaveBeenCalled();
+
+  act(() => vi.advanceTimersByTime(59_999));
+  expect(secondRecorder.stop).not.toHaveBeenCalled();
+  await act(async () => {
+    vi.advanceTimersByTime(1);
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+
+  expect(onTranscript).toHaveBeenCalledWith("Купити хліб");
+  expect(secondRecorder.stop).toHaveBeenCalledOnce();
+  expect(secondTrack.stop).toHaveBeenCalledOnce();
+  expect(transcriptionMocks.request).toHaveBeenCalledOnce();
+  const uploaded = transcriptionMocks.request.mock.calls[0][0] as Blob;
+  expect(uploaded).toMatchObject({
+    size: new Blob(["second-session"]).size,
+    type: "audio/webm;codecs=opus",
+  });
 });
 
 it("stops active tracks when the recorder unmounts", async () => {

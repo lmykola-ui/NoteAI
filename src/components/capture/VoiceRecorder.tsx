@@ -17,6 +17,16 @@ type VoiceRecorderProps = {
 
 const MAX_RECORDING_MS = 60_000;
 
+type RecordingSession = {
+  generation: number;
+  recorder: MediaRecorder | null;
+  stream: MediaStream | null;
+  chunks: Blob[];
+  stopTimer: ReturnType<typeof setTimeout> | null;
+  discard: boolean;
+  finished: boolean;
+};
+
 function isPermissionDenied(error: unknown) {
   const name =
     typeof error === "object" && error !== null && "name" in error
@@ -30,50 +40,49 @@ function isPermissionDenied(error: unknown) {
 export function VoiceRecorder({ onTranscript }: VoiceRecorderProps) {
   const [state, setState] = useState<RecorderState>("idle");
   const mountedRef = useRef(true);
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const discardRecordingRef = useRef(false);
+  const generationRef = useRef(0);
+  const activeSessionRef = useRef<RecordingSession | null>(null);
 
-  function clearStopTimer() {
-    if (stopTimerRef.current !== null) {
-      clearTimeout(stopTimerRef.current);
-      stopTimerRef.current = null;
+  function clearStopTimer(session: RecordingSession) {
+    if (session.stopTimer !== null) {
+      clearTimeout(session.stopTimer);
+      session.stopTimer = null;
     }
   }
 
-  function stopTracks() {
-    const stream = streamRef.current;
-    streamRef.current = null;
+  function stopTracks(session: RecordingSession) {
+    const stream = session.stream;
+    session.stream = null;
     stream?.getTracks().forEach((track) => track.stop());
   }
 
-  async function finishRecording(recorder: MediaRecorder) {
-    clearStopTimer();
-    stopTracks();
-    if (recorderRef.current === recorder) recorderRef.current = null;
+  async function finishRecording(session: RecordingSession) {
+    if (session.finished) return;
+    session.finished = true;
+    clearStopTimer(session);
+    stopTracks(session);
+    if (activeSessionRef.current === session) activeSessionRef.current = null;
 
-    const chunks = chunksRef.current;
-    chunksRef.current = [];
-    if (discardRecordingRef.current) {
-      discardRecordingRef.current = false;
-      return;
-    }
+    const chunks = session.chunks;
+    session.chunks = [];
+    if (session.discard) return;
 
     let blob: Blob | null = new Blob(chunks, {
-      type: recorder.mimeType || chunks[0]?.type || "audio/webm",
+      type: session.recorder?.mimeType || chunks[0]?.type || "audio/webm",
     });
-    if (mountedRef.current) setState("transcribing");
+    session.recorder = null;
+    const isCurrent = () =>
+      mountedRef.current && generationRef.current === session.generation;
+    if (isCurrent()) setState("transcribing");
 
     try {
       const text = await requestTranscription(blob);
       blob = null;
-      if (!mountedRef.current) return;
+      if (!isCurrent()) return;
       await onTranscript(text);
-      if (mountedRef.current) setState("idle");
+      if (isCurrent()) setState("idle");
     } catch {
-      if (mountedRef.current) setState("error");
+      if (isCurrent()) setState("error");
     } finally {
       blob = null;
     }
@@ -81,7 +90,17 @@ export function VoiceRecorder({ onTranscript }: VoiceRecorderProps) {
 
   async function startRecording() {
     setState("requesting");
-    discardRecordingRef.current = false;
+    const session: RecordingSession = {
+      generation: generationRef.current + 1,
+      recorder: null,
+      stream: null,
+      chunks: [],
+      stopTimer: null,
+      discard: false,
+      finished: false,
+    };
+    generationRef.current = session.generation;
+    activeSessionRef.current = session;
 
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
@@ -89,52 +108,66 @@ export function VoiceRecorder({ onTranscript }: VoiceRecorderProps) {
       }
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      if (!mountedRef.current) {
+      if (!mountedRef.current || activeSessionRef.current !== session) {
         stream.getTracks().forEach((track) => track.stop());
         return;
       }
 
-      streamRef.current = stream;
+      session.stream = stream;
       if (!globalThis.MediaRecorder) {
         throw new Error("RECORDING_UNAVAILABLE");
       }
       const recorder = new MediaRecorder(stream);
-      recorderRef.current = recorder;
-      chunksRef.current = [];
+      session.recorder = recorder;
 
       recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) chunksRef.current.push(event.data);
+        if (!session.discard && !session.finished && event.data.size > 0) {
+          session.chunks.push(event.data);
+        }
       };
       recorder.onstop = () => {
-        void finishRecording(recorder);
+        void finishRecording(session);
       };
       recorder.onerror = () => {
-        discardRecordingRef.current = true;
-        clearStopTimer();
-        stopTracks();
-        chunksRef.current = [];
-        if (mountedRef.current) setState("error");
+        session.discard = true;
+        clearStopTimer(session);
+        stopTracks(session);
+        session.chunks = [];
+        if (mountedRef.current && activeSessionRef.current === session) {
+          setState("error");
+        }
         if (recorder.state !== "inactive") recorder.stop();
       };
 
       recorder.start();
+      if (
+        !mountedRef.current ||
+        activeSessionRef.current !== session ||
+        session.discard
+      ) {
+        return;
+      }
       setState("recording");
-      stopTimerRef.current = setTimeout(() => {
+      session.stopTimer = setTimeout(() => {
         if (recorder.state === "recording") recorder.stop();
       }, MAX_RECORDING_MS);
     } catch (error) {
-      clearStopTimer();
-      stopTracks();
-      chunksRef.current = [];
-      recorderRef.current = null;
-      if (mountedRef.current) {
+      session.discard = true;
+      clearStopTimer(session);
+      stopTracks(session);
+      session.chunks = [];
+      session.recorder = null;
+      if (activeSessionRef.current === session) {
+        activeSessionRef.current = null;
+      }
+      if (mountedRef.current && generationRef.current === session.generation) {
         setState(isPermissionDenied(error) ? "denied" : "error");
       }
     }
   }
 
   function stopRecording() {
-    const recorder = recorderRef.current;
+    const recorder = activeSessionRef.current?.recorder;
     if (recorder?.state === "recording") recorder.stop();
   }
 
@@ -142,18 +175,21 @@ export function VoiceRecorder({ onTranscript }: VoiceRecorderProps) {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      discardRecordingRef.current = true;
-      clearStopTimer();
-      const recorder = recorderRef.current;
-      recorderRef.current = null;
+      const session = activeSessionRef.current;
+      activeSessionRef.current = null;
+      if (!session) return;
+      session.discard = true;
+      clearStopTimer(session);
+      const recorder = session.recorder;
+      session.recorder = null;
       if (recorder) {
         recorder.ondataavailable = null;
         recorder.onerror = null;
         recorder.onstop = null;
         if (recorder.state !== "inactive") recorder.stop();
       }
-      stopTracks();
-      chunksRef.current = [];
+      stopTracks(session);
+      session.chunks = [];
     };
   }, []);
 
