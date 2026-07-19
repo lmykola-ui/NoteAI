@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { AnalyticsInitializer } from "@/components/app-shell/AnalyticsInitializer";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -17,6 +18,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="uk">
       <body>
         {children}
+        <AnalyticsInitializer />
       </body>
     </html>
   );

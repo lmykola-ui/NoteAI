@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { requestTranscription } from "@/features/capture/application/transcribeClient";
 import { trackSafeEvent } from "@/lib/analytics";
 import {
   isOfflineError,
   isOnlineNow,
+  subscribeToOnlineStatus,
 } from "@/lib/connectivity";
 
 type RecorderState =
@@ -53,10 +54,6 @@ export function VoiceRecorder({
   const activeSessionRef = useRef<RecordingSession | null>(null);
   const disabledRef = useRef(disabled);
 
-  useEffect(() => {
-    disabledRef.current = disabled;
-  }, [disabled]);
-
   function clearStopTimer(session: RecordingSession) {
     if (session.stopTimer !== null) {
       clearTimeout(session.stopTimer);
@@ -69,6 +66,19 @@ export function VoiceRecorder({
     session.stream = null;
     stream?.getTracks().forEach((track) => track.stop());
   }
+
+  useLayoutEffect(() => {
+    disabledRef.current = disabled;
+    if (!disabled) return;
+
+    const session = activeSessionRef.current;
+    if (!session || session.recorder) return;
+    session.discard = true;
+    activeSessionRef.current = null;
+    if (mountedRef.current && generationRef.current === session.generation) {
+      setState("idle");
+    }
+  }, [disabled]);
 
   async function finishRecording(session: RecordingSession) {
     if (session.finished) return;
@@ -145,10 +155,21 @@ export function VoiceRecorder({
       if (
         !mountedRef.current ||
         activeSessionRef.current !== session ||
+        session.discard ||
         disabledRef.current ||
         !isOnlineNow()
       ) {
         stream.getTracks().forEach((track) => track.stop());
+        session.discard = true;
+        if (activeSessionRef.current === session) {
+          activeSessionRef.current = null;
+        }
+        if (
+          mountedRef.current &&
+          generationRef.current === session.generation
+        ) {
+          setState("idle");
+        }
         return;
       }
 
@@ -209,6 +230,19 @@ export function VoiceRecorder({
     const recorder = activeSessionRef.current?.recorder;
     if (recorder?.state === "recording") recorder.stop();
   }
+
+  useLayoutEffect(() => {
+    return subscribeToOnlineStatus(() => {
+      if (isOnlineNow()) return;
+      const session = activeSessionRef.current;
+      if (!session || session.recorder) return;
+      session.discard = true;
+      activeSessionRef.current = null;
+      if (mountedRef.current && generationRef.current === session.generation) {
+        setState("idle");
+      }
+    });
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;

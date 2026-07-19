@@ -1,12 +1,13 @@
 import { Children, type ReactElement, type ReactNode } from "react";
 import { afterEach, expect, it, vi } from "vitest";
+import { AnalyticsInitializer } from "@/components/app-shell/AnalyticsInitializer";
 import RootLayout from "./layout";
 
 afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-it("does not mount automatic page-view analytics when custom events are enabled", () => {
+it("mounts only the safe custom-event analytics initializer", () => {
   vi.stubEnv("NEXT_PUBLIC_ENABLE_ANALYTICS", "true");
 
   const html = RootLayout({ children: <main>Приватна нотатка</main> }) as ReactElement<{
@@ -14,5 +15,7 @@ it("does not mount automatic page-view analytics when custom events are enabled"
   }>;
   const body = html.props.children;
 
-  expect(Children.toArray(body.props.children)).toHaveLength(1);
+  const bodyChildren = Children.toArray(body.props.children) as ReactElement[];
+  expect(bodyChildren).toHaveLength(2);
+  expect(bodyChildren[1].type).toBe(AnalyticsInitializer);
 });

@@ -197,6 +197,69 @@ it("does not send a recording when the connection is lost before transcription",
   expect(transcriptionMocks.request).not.toHaveBeenCalled();
 });
 
+it("recovers after going offline while microphone permission is pending", async () => {
+  let resolveFirstPermission!: (stream: MediaStream) => void;
+  const firstTrack = { stop: vi.fn() } as unknown as MediaStreamTrack;
+  const secondTrack = { stop: vi.fn() } as unknown as MediaStreamTrack;
+  const firstStream = {
+    getTracks: vi.fn().mockReturnValue([firstTrack]),
+  } as unknown as MediaStream;
+  const secondStream = {
+    getTracks: vi.fn().mockReturnValue([secondTrack]),
+  } as unknown as MediaStream;
+  const getUserMedia = vi
+    .fn()
+    .mockReturnValueOnce(
+      new Promise<MediaStream>((resolve) => {
+        resolveFirstPermission = resolve;
+      }),
+    )
+    .mockResolvedValueOnce(secondStream);
+  vi.stubGlobal("navigator", {
+    onLine: true,
+    mediaDevices: { getUserMedia },
+  });
+  vi.stubGlobal("MediaRecorder", MockMediaRecorder);
+  const onTranscript = vi.fn();
+  const { rerender } = render(
+    <VoiceRecorder onTranscript={onTranscript} disabled={false} />,
+  );
+
+  await userEvent.click(screen.getByRole("button", { name: "Почати запис" }));
+  expect(screen.getByRole("button", { name: "Запитуємо доступ…" })).toBeDisabled();
+
+  Object.defineProperty(navigator, "onLine", {
+    configurable: true,
+    value: false,
+  });
+  rerender(<VoiceRecorder onTranscript={onTranscript} disabled />);
+
+  expect(transcriptionMocks.request).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: "Почати запис" })).toBeDisabled();
+
+  Object.defineProperty(navigator, "onLine", {
+    configurable: true,
+    value: true,
+  });
+  rerender(<VoiceRecorder onTranscript={onTranscript} disabled={false} />);
+
+  await userEvent.click(screen.getByRole("button", { name: "Почати запис" }));
+
+  expect(getUserMedia).toHaveBeenCalledTimes(2);
+  expect(MockMediaRecorder.instances).toHaveLength(1);
+  expect(screen.getByRole("button", { name: "Зупинити запис" })).toBeEnabled();
+  expect(secondTrack.stop).not.toHaveBeenCalled();
+
+  await act(async () => {
+    resolveFirstPermission(firstStream);
+    await Promise.resolve();
+  });
+
+  expect(firstTrack.stop).toHaveBeenCalledOnce();
+  expect(screen.getByRole("button", { name: "Зупинити запис" })).toBeEnabled();
+  expect(secondTrack.stop).not.toHaveBeenCalled();
+});
+
 it("keeps retry resources isolated from delayed callbacks of a failed recording", async () => {
   vi.useFakeTimers();
   const firstTrack = { stop: vi.fn() } as unknown as MediaStreamTrack;
