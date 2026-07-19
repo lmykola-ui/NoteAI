@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "test:watch": "vitest",
     "test:e2e": "playwright test --project=mobile-chrome --project=mobile-safari",
-    "test:e2e:install": "playwright install chromium webkit"
+    "test:e2e:install": "playwright install chromium webkit",
+    "scan:secrets": "node scripts/secretScan.mjs"
   },
   "keywords": [],
   "author": "",

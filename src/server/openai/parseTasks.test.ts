@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { ukrainianAcceptanceCases } from "../../../tests/fixtures/ukrainian-cases";
 import { parseTasksWithClient } from "./parseTasks";
 
 vi.mock("server-only", () => ({}));
@@ -8,6 +9,41 @@ vi.mock("./client", () => ({
 }));
 
 describe("parseTasksWithClient", () => {
+  it("keeps the canonical Ukrainian acceptance set at ten cases", () => {
+    expect(ukrainianAcceptanceCases).toHaveLength(10);
+  });
+
+  it.each(ukrainianAcceptanceCases)(
+    "honors acceptance case: $name",
+    async ({ input, today, modelOutput, expected }) => {
+      const parse = vi.fn().mockResolvedValue({ output_parsed: modelOutput });
+      const client = {
+        responses: { parse },
+      } as unknown as Parameters<typeof parseTasksWithClient>[0];
+
+      const result = await parseTasksWithClient(client, {
+        text: input,
+        today,
+        timeZone: "Europe/Warsaw",
+        inputMethod: "text",
+      });
+
+      expect(result).toEqual(expected);
+      expect(parse).toHaveBeenCalledOnce();
+      const request = parse.mock.calls[0]?.[0];
+      expect(request.input).toEqual([
+        expect.objectContaining({
+          role: "system",
+          content: expect.stringContaining("Не вигадуй дату, час, статус або пріоритет"),
+        }),
+        {
+          role: "user",
+          content: `Локальна дата: ${today}\nЧасовий пояс: Europe/Warsaw\nНотатка: ${input}`,
+        },
+      ]);
+    },
+  );
+
   it("normalizes structured Ukrainian task output", async () => {
     const parse = vi.fn().mockResolvedValue({
       output_parsed: {

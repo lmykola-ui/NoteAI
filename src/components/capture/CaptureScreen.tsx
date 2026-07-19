@@ -115,6 +115,7 @@ export function CaptureScreen({
     try {
       await pendingDraftWrite.current;
       await addDrafts(tasks);
+      window.dispatchEvent(new Event("noteai:local-data-ready"));
       trackSafeEvent("capture_confirmed");
       onConfirmedSave?.();
     } catch {

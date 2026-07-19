@@ -46,11 +46,21 @@ pnpm test:e2e
 pnpm lint
 pnpm typecheck
 pnpm build
-git grep -n "OPENAI_API_KEY" -- ':!README.md' ':!.env.example'
+pnpm scan:secrets
 git diff --check
 ```
 
-`pnpm test:e2e` starts the Next.js development server automatically and runs the acceptance suite in both `mobile-chrome` (Pixel 7) and `mobile-safari` (iPhone 14) projects. API parsing is stubbed in browser tests, so the E2E suite does not spend OpenAI quota or require a real key.
+`pnpm scan:secrets` is the repeatable release gate for both `OPENAI_API_KEY`
+references and literal OpenAI-style `sk-...` / `sk-proj-...` credentials. It
+scans tracked and non-ignored untracked repository files, prints every key-name
+reference for review, and fails when a literal credential pattern is found.
+
+`pnpm test:e2e` builds and starts the production Next.js server automatically,
+then runs the acceptance suite in both `mobile-chrome` (Pixel 7) and
+`mobile-safari` (iPhone 14) projects. The deploy-like server is required for a
+stable offline-shell reload because the development server's hot-reload client
+intentionally reconnects to the network. API parsing is stubbed in browser
+tests, so the E2E suite does not spend OpenAI quota or require a real key.
 
 ## Vercel release runbook
 

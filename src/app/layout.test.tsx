@@ -1,6 +1,7 @@
 import { Children, type ReactElement, type ReactNode } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { AnalyticsInitializer } from "@/components/app-shell/AnalyticsInitializer";
+import { OfflineInitializer } from "@/components/app-shell/OfflineInitializer";
 import RootLayout from "./layout";
 
 afterEach(() => {
@@ -16,6 +17,7 @@ it("mounts only the safe custom-event analytics initializer", () => {
   const body = html.props.children;
 
   const bodyChildren = Children.toArray(body.props.children) as ReactElement[];
-  expect(bodyChildren).toHaveLength(2);
-  expect(bodyChildren[1].type).toBe(AnalyticsInitializer);
+  expect(bodyChildren).toHaveLength(3);
+  expect(bodyChildren[1].type).toBe(OfflineInitializer);
+  expect(bodyChildren[2].type).toBe(AnalyticsInitializer);
 });
