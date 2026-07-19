@@ -147,3 +147,89 @@ it("puts a transcript in the shared textarea and parses it as voice", async () =
   expect(await screen.findByDisplayValue("Купити молоко")).toBeVisible();
   expect(track.stop).toHaveBeenCalledOnce();
 });
+
+it("discards a deferred transcript when AI becomes unavailable before it resolves", async () => {
+  let resolveTranscription!: (text: string) => void;
+  const transcription = new Promise<string>((resolve) => {
+    resolveTranscription = resolve;
+  });
+  const track = { stop: vi.fn() } as unknown as MediaStreamTrack;
+  const stream = {
+    getTracks: vi.fn().mockReturnValue([track]),
+  } as unknown as MediaStream;
+  vi.stubGlobal("navigator", {
+    onLine: true,
+    mediaDevices: { getUserMedia: vi.fn().mockResolvedValue(stream) },
+  });
+  vi.stubGlobal("MediaRecorder", MockMediaRecorder);
+  const fetchMock = vi.fn();
+  vi.stubGlobal("fetch", fetchMock);
+  captureMocks.transcribe.mockReturnValue(transcription);
+  const repository = createMemoryTaskRepository();
+  const { rerender } = render(
+    <TaskProvider repository={repository}>
+      <CaptureScreen aiAvailable />
+    </TaskProvider>,
+  );
+
+  await userEvent.click(screen.getByRole("button", { name: "Почати запис" }));
+  await userEvent.click(screen.getByRole("button", { name: "Зупинити запис" }));
+  await waitFor(() => expect(captureMocks.transcribe).toHaveBeenCalledOnce());
+
+  Object.defineProperty(navigator, "onLine", {
+    configurable: true,
+    value: false,
+  });
+  rerender(
+    <TaskProvider repository={repository}>
+      <CaptureScreen aiAvailable={false} />
+    </TaskProvider>,
+  );
+  await act(async () => {
+    resolveTranscription("Купити молоко");
+    await transcription;
+  });
+
+  expect(fetchMock).not.toHaveBeenCalled();
+  expect(screen.getByLabelText("Ваша нотатка")).not.toHaveValue("Купити молоко");
+  expect(screen.getByRole("button", { name: "Почати запис" })).toBeDisabled();
+});
+
+it("does not parse when offline and a deferred transcript resolve in the same tick", async () => {
+  let resolveTranscription!: (text: string) => void;
+  const transcription = new Promise<string>((resolve) => {
+    resolveTranscription = resolve;
+  });
+  const track = { stop: vi.fn() } as unknown as MediaStreamTrack;
+  vi.stubGlobal("navigator", {
+    onLine: true,
+    mediaDevices: {
+      getUserMedia: vi.fn().mockResolvedValue({
+        getTracks: vi.fn().mockReturnValue([track]),
+      } as unknown as MediaStream),
+    },
+  });
+  vi.stubGlobal("MediaRecorder", MockMediaRecorder);
+  const fetchMock = vi.fn();
+  vi.stubGlobal("fetch", fetchMock);
+  captureMocks.transcribe.mockReturnValue(transcription);
+  renderCapture();
+
+  await userEvent.click(screen.getByRole("button", { name: "Почати запис" }));
+  await userEvent.click(screen.getByRole("button", { name: "Зупинити запис" }));
+  await waitFor(() => expect(captureMocks.transcribe).toHaveBeenCalledOnce());
+
+  Object.defineProperty(navigator, "onLine", {
+    configurable: true,
+    value: false,
+  });
+  await act(async () => {
+    window.dispatchEvent(new Event("offline"));
+    resolveTranscription("Купити молоко");
+    await transcription;
+  });
+
+  expect(fetchMock).not.toHaveBeenCalled();
+  expect(screen.getByLabelText("Ваша нотатка")).not.toHaveValue("Купити молоко");
+  expect(screen.queryByText("Розпізнаємо…")).not.toBeInTheDocument();
+});

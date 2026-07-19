@@ -1,26 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
+import {
+  isOnlineNow,
+  subscribeToOnlineStatus,
+} from "@/lib/connectivity";
 
 type AppStatusProps = {
+  isOnline?: boolean;
   onOnlineChange?(isOnline: boolean): void;
 };
 
-export function AppStatus({ onOnlineChange }: AppStatusProps) {
-  const [isOnline, setIsOnline] = useState(true);
+export function useOnlineStatus(): boolean {
+  return useSyncExternalStore(subscribeToOnlineStatus, isOnlineNow, () => false);
+}
 
-  useEffect(() => {
-    const updateOnlineStatus = () => setIsOnline(navigator.onLine);
-
-    updateOnlineStatus();
-    window.addEventListener("online", updateOnlineStatus);
-    window.addEventListener("offline", updateOnlineStatus);
-
-    return () => {
-      window.removeEventListener("online", updateOnlineStatus);
-      window.removeEventListener("offline", updateOnlineStatus);
-    };
-  }, []);
+export function AppStatus({
+  isOnline: suppliedOnlineStatus,
+  onOnlineChange,
+}: AppStatusProps) {
+  const observedOnlineStatus = useOnlineStatus();
+  const isOnline = suppliedOnlineStatus ?? observedOnlineStatus;
 
   useEffect(() => {
     onOnlineChange?.(isOnline);

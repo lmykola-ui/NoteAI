@@ -1,3 +1,10 @@
+import {
+  assertOnline,
+  beginOnlineRequest,
+  isOnlineNow,
+  OfflineError,
+} from "@/lib/connectivity";
+
 function recordingFilename(type: string) {
   switch (type.split(";", 1)[0].trim().toLowerCase()) {
     case "audio/mp4":
@@ -22,21 +29,35 @@ export async function requestTranscription(blob: Blob): Promise<string> {
     }),
   );
 
-  const response = await fetch("/api/transcribe", {
-    method: "POST",
-    body: form,
-  });
+  const onlineRequest = beginOnlineRequest();
+  try {
+    assertOnline();
+    const response = await fetch("/api/transcribe", {
+      method: "POST",
+      body: form,
+      signal: onlineRequest.signal,
+    });
+    assertOnline();
 
-  if (!response.ok) {
-    throw new Error("TRANSCRIPTION_UNAVAILABLE");
+    if (!response.ok) {
+      throw new Error("TRANSCRIPTION_UNAVAILABLE");
+    }
+
+    const result = (await response.json().catch(() => null)) as {
+      text?: unknown;
+    } | null;
+    assertOnline();
+    if (typeof result?.text !== "string" || !result.text.trim()) {
+      throw new Error("TRANSCRIPTION_UNAVAILABLE");
+    }
+
+    return result.text;
+  } catch (error) {
+    if (onlineRequest.signal.aborted || !isOnlineNow()) {
+      throw new OfflineError();
+    }
+    throw error;
+  } finally {
+    onlineRequest.finish();
   }
-
-  const result = (await response.json().catch(() => null)) as {
-    text?: unknown;
-  } | null;
-  if (typeof result?.text !== "string" || !result.text.trim()) {
-    throw new Error("TRANSCRIPTION_UNAVAILABLE");
-  }
-
-  return result.text;
 }

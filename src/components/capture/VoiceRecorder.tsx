@@ -3,6 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { requestTranscription } from "@/features/capture/application/transcribeClient";
 import { trackSafeEvent } from "@/lib/analytics";
+import {
+  isOfflineError,
+  isOnlineNow,
+} from "@/lib/connectivity";
 
 type RecorderState =
   | "idle"
@@ -75,7 +79,7 @@ export function VoiceRecorder({
 
     const chunks = session.chunks;
     session.chunks = [];
-    if (session.discard || disabledRef.current) {
+    if (session.discard || disabledRef.current || !isOnlineNow()) {
       if (mountedRef.current && generationRef.current === session.generation) {
         setState("idle");
       }
@@ -94,9 +98,22 @@ export function VoiceRecorder({
       const text = await requestTranscription(blob);
       blob = null;
       if (!isCurrent()) return;
+      if (disabledRef.current || !isOnlineNow()) {
+        setState("idle");
+        return;
+      }
       await onTranscript(text);
-      if (isCurrent()) setState("idle");
-    } catch {
+      if (!isCurrent()) return;
+      if (disabledRef.current || !isOnlineNow()) {
+        setState("idle");
+        return;
+      }
+      setState("idle");
+    } catch (error) {
+      if (isOfflineError(error) || !isOnlineNow()) {
+        if (isCurrent()) setState("idle");
+        return;
+      }
       trackSafeEvent("transcription_failed");
       if (isCurrent()) setState("error");
     } finally {
@@ -105,7 +122,7 @@ export function VoiceRecorder({
   }
 
   async function startRecording() {
-    if (disabled) return;
+    if (disabled || !isOnlineNow()) return;
     setState("requesting");
     const session: RecordingSession = {
       generation: generationRef.current + 1,
@@ -125,7 +142,12 @@ export function VoiceRecorder({
       }
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      if (!mountedRef.current || activeSessionRef.current !== session) {
+      if (
+        !mountedRef.current ||
+        activeSessionRef.current !== session ||
+        disabledRef.current ||
+        !isOnlineNow()
+      ) {
         stream.getTracks().forEach((track) => track.stop());
         return;
       }

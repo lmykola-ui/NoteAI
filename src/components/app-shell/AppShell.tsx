@@ -1,7 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { AppStatus } from "@/components/app-shell/AppStatus";
+import {
+  AppStatus,
+  useOnlineStatus,
+} from "@/components/app-shell/AppStatus";
 import { CaptureScreen } from "@/components/capture/CaptureScreen";
 import { InboxScreen } from "@/components/tasks/InboxScreen";
 import { PlanScreen } from "@/components/tasks/PlanScreen";
@@ -19,7 +22,7 @@ const destinations: Array<{ id: Destination; label: string }> = [
 
 export function AppShell() {
   const [destination, setDestination] = useState<Destination>("capture");
-  const [isOnline, setIsOnline] = useState(true);
+  const isOnline = useOnlineStatus();
   const persistenceRequested = useRef(false);
   const { tasks, error, updateTask, completeTask, restoreTask, deleteTask } =
     useTasks();
@@ -34,7 +37,7 @@ export function AppShell() {
 
   return (
     <main className="mobile-shell">
-      <AppStatus onOnlineChange={setIsOnline} />
+      <AppStatus isOnline={isOnline} />
       {destination === "capture" ? (
         <CaptureScreen
           aiAvailable={isOnline}

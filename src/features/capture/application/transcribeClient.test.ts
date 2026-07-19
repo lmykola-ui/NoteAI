@@ -1,5 +1,12 @@
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { requestTranscription } from "./transcribeClient";
+
+beforeEach(() => {
+  Object.defineProperty(navigator, "onLine", {
+    configurable: true,
+    value: true,
+  });
+});
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -61,4 +68,45 @@ it("maps non-successful and malformed responses to a stable client error", async
   await expect(requestTranscription(recording)).rejects.toThrow(
     "TRANSCRIPTION_UNAVAILABLE",
   );
+});
+
+it("does not cross the transcription fetch boundary while offline", async () => {
+  Object.defineProperty(navigator, "onLine", {
+    configurable: true,
+    value: false,
+  });
+  const fetchMock = vi.fn();
+  vi.stubGlobal("fetch", fetchMock);
+
+  await expect(
+    requestTranscription(new Blob(["voice"], { type: "audio/webm" })),
+  ).rejects.toThrow("OFFLINE");
+  expect(fetchMock).not.toHaveBeenCalled();
+});
+
+it("discards a transcript if connectivity is lost while reading it", async () => {
+  let resolveJson!: (value: unknown) => void;
+  const json = new Promise((resolve) => {
+    resolveJson = resolve;
+  });
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockReturnValue(json),
+    } as unknown as Response),
+  );
+
+  const pending = requestTranscription(
+    new Blob(["voice"], { type: "audio/webm" }),
+  );
+  await Promise.resolve();
+  Object.defineProperty(navigator, "onLine", {
+    configurable: true,
+    value: false,
+  });
+  window.dispatchEvent(new Event("offline"));
+  resolveJson({ text: "Купити молоко" });
+
+  await expect(pending).rejects.toThrow("OFFLINE");
 });

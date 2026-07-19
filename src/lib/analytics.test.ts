@@ -18,7 +18,7 @@ it("tracks an allowlisted event without event data when analytics is enabled", (
   trackSafeEvent("capture_confirmed");
 
   expect(analyticsMocks.track).toHaveBeenCalledOnce();
-  expect(analyticsMocks.track).toHaveBeenCalledWith("capture_confirmed");
+  expect(analyticsMocks.track.mock.calls[0]).toEqual(["capture_confirmed"]);
 });
 
 it("does not track when analytics is disabled", () => {

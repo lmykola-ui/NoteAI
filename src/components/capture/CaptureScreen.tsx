@@ -6,6 +6,11 @@ import { VoiceRecorder } from "@/components/capture/VoiceRecorder";
 import { parseText } from "@/features/capture/application/parseClient";
 import { trackSafeEvent } from "@/lib/analytics";
 import {
+  assertOnline,
+  isOfflineError,
+  isOnlineNow,
+} from "@/lib/connectivity";
+import {
   clearCaptureDraft,
   loadCaptureDraft,
   saveCaptureDraft,
@@ -76,26 +81,34 @@ export function CaptureScreen({
     inputMethod: InputMethod = "text",
     captureText = text,
   ) {
-    if (!aiAvailable || !captureText.trim()) return;
+    if (!aiAvailable || !isOnlineNow() || !captureText.trim()) return;
 
     setCaptureState({ kind: "parsing" });
     try {
+      assertOnline();
       const result = await parseText({
         text: captureText,
         today: toLocalDateKey(new Date()),
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         inputMethod,
       });
+      assertOnline();
       setCaptureState({ kind: "preview", result });
-    } catch {
+    } catch (error) {
+      if (isOfflineError(error) || !isOnlineNow()) {
+        setCaptureState({ kind: "editing" });
+        return;
+      }
       trackSafeEvent("parse_failed");
       setCaptureState({ kind: "error", message: parseErrorMessage });
     }
   }
 
   async function handleTranscript(transcript: string) {
+    if (!isOnlineNow()) return;
     changeText(transcript);
     await parseCapture("voice", transcript);
+    if (!isOnlineNow()) return;
   }
 
   async function confirmTasks(tasks: ParseResult["tasks"]) {
