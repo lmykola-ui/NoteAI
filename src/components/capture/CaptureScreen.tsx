@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { QuickPreview } from "@/components/preview/QuickPreview";
 import { VoiceRecorder } from "@/components/capture/VoiceRecorder";
 import { parseText } from "@/features/capture/application/parseClient";
+import { trackSafeEvent } from "@/lib/analytics";
 import {
   clearCaptureDraft,
   loadCaptureDraft,
@@ -28,7 +29,15 @@ const parseErrorMessage =
 const cleanupErrorMessage =
   "Задачі додано, але нотатку не вдалося очистити. Спробувати ще раз";
 
-export function CaptureScreen() {
+type CaptureScreenProps = {
+  aiAvailable?: boolean;
+  onConfirmedSave?(): void;
+};
+
+export function CaptureScreen({
+  aiAvailable = true,
+  onConfirmedSave,
+}: CaptureScreenProps) {
   const { addDrafts } = useTasks();
   const [text, setText] = useState("");
   const [captureState, setCaptureState] = useState<CaptureState>({
@@ -67,7 +76,7 @@ export function CaptureScreen() {
     inputMethod: InputMethod = "text",
     captureText = text,
   ) {
-    if (!captureText.trim()) return;
+    if (!aiAvailable || !captureText.trim()) return;
 
     setCaptureState({ kind: "parsing" });
     try {
@@ -79,6 +88,7 @@ export function CaptureScreen() {
       });
       setCaptureState({ kind: "preview", result });
     } catch {
+      trackSafeEvent("parse_failed");
       setCaptureState({ kind: "error", message: parseErrorMessage });
     }
   }
@@ -92,6 +102,8 @@ export function CaptureScreen() {
     try {
       await pendingDraftWrite.current;
       await addDrafts(tasks);
+      trackSafeEvent("capture_confirmed");
+      onConfirmedSave?.();
     } catch {
       setCaptureState({ kind: "error", message: parseErrorMessage });
       return;
@@ -155,7 +167,10 @@ export function CaptureScreen() {
           disabled={isParsing}
         />
       </label>
-      {isParsing ? null : <VoiceRecorder onTranscript={handleTranscript} />}
+      {isParsing ? null : (
+        <VoiceRecorder onTranscript={handleTranscript} disabled={!aiAvailable} />
+      )}
+      <p className="storage-help">Зберігається лише в цьому браузері</p>
       {captureState.kind === "error" ? (
         <p role="alert" className="capture-error">
           {captureState.message}
@@ -165,7 +180,7 @@ export function CaptureScreen() {
         type="button"
         className="primary-button"
         onClick={() => parseCapture()}
-        disabled={isParsing || !text.trim()}
+        disabled={isParsing || !text.trim() || !aiAvailable}
       >
         {isParsing ? "Аналізуємо…" : "Розібрати"}
       </button>

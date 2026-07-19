@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { AppStatus } from "@/components/app-shell/AppStatus";
 import { CaptureScreen } from "@/components/capture/CaptureScreen";
 import { InboxScreen } from "@/components/tasks/InboxScreen";
 import { PlanScreen } from "@/components/tasks/PlanScreen";
 import { useTasks } from "@/features/tasks/application/TaskProvider";
 import { toLocalDateKey } from "@/features/tasks/domain/dateWindow";
+import { requestLocalPersistence } from "@/lib/storagePersistence";
 
 type Destination = "capture" | "inbox" | "plan";
 
@@ -17,13 +19,28 @@ const destinations: Array<{ id: Destination; label: string }> = [
 
 export function AppShell() {
   const [destination, setDestination] = useState<Destination>("capture");
+  const [isOnline, setIsOnline] = useState(true);
+  const persistenceRequested = useRef(false);
   const { tasks, error, updateTask, completeTask, restoreTask, deleteTask } =
     useTasks();
   const today = toLocalDateKey(new Date());
 
+  function requestPersistenceAfterFirstSave() {
+    if (persistenceRequested.current) return;
+
+    persistenceRequested.current = true;
+    void requestLocalPersistence().catch(() => undefined);
+  }
+
   return (
     <main className="mobile-shell">
-      {destination === "capture" ? <CaptureScreen /> : null}
+      <AppStatus onOnlineChange={setIsOnline} />
+      {destination === "capture" ? (
+        <CaptureScreen
+          aiAvailable={isOnline}
+          onConfirmedSave={requestPersistenceAfterFirstSave}
+        />
+      ) : null}
       {destination === "inbox" ? (
         <InboxScreen
           tasks={tasks}

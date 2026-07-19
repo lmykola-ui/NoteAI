@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { requestTranscription } from "@/features/capture/application/transcribeClient";
+import { trackSafeEvent } from "@/lib/analytics";
 
 type RecorderState =
   | "idle"
@@ -13,6 +14,7 @@ type RecorderState =
 
 type VoiceRecorderProps = {
   onTranscript: (text: string) => void | Promise<void>;
+  disabled?: boolean;
 };
 
 const MAX_RECORDING_MS = 60_000;
@@ -37,11 +39,19 @@ function isPermissionDenied(error: unknown) {
   );
 }
 
-export function VoiceRecorder({ onTranscript }: VoiceRecorderProps) {
+export function VoiceRecorder({
+  onTranscript,
+  disabled = false,
+}: VoiceRecorderProps) {
   const [state, setState] = useState<RecorderState>("idle");
   const mountedRef = useRef(true);
   const generationRef = useRef(0);
   const activeSessionRef = useRef<RecordingSession | null>(null);
+  const disabledRef = useRef(disabled);
+
+  useEffect(() => {
+    disabledRef.current = disabled;
+  }, [disabled]);
 
   function clearStopTimer(session: RecordingSession) {
     if (session.stopTimer !== null) {
@@ -65,7 +75,12 @@ export function VoiceRecorder({ onTranscript }: VoiceRecorderProps) {
 
     const chunks = session.chunks;
     session.chunks = [];
-    if (session.discard) return;
+    if (session.discard || disabledRef.current) {
+      if (mountedRef.current && generationRef.current === session.generation) {
+        setState("idle");
+      }
+      return;
+    }
 
     let blob: Blob | null = new Blob(chunks, {
       type: session.recorder?.mimeType || chunks[0]?.type || "audio/webm",
@@ -82,6 +97,7 @@ export function VoiceRecorder({ onTranscript }: VoiceRecorderProps) {
       await onTranscript(text);
       if (isCurrent()) setState("idle");
     } catch {
+      trackSafeEvent("transcription_failed");
       if (isCurrent()) setState("error");
     } finally {
       blob = null;
@@ -89,6 +105,7 @@ export function VoiceRecorder({ onTranscript }: VoiceRecorderProps) {
   }
 
   async function startRecording() {
+    if (disabled) return;
     setState("requesting");
     const session: RecordingSession = {
       generation: generationRef.current + 1,
@@ -221,6 +238,7 @@ export function VoiceRecorder({ onTranscript }: VoiceRecorderProps) {
           type="button"
           className="secondary-button"
           onClick={startRecording}
+          disabled={disabled}
         >
           Спробувати ще раз
         </button>
@@ -233,6 +251,7 @@ export function VoiceRecorder({ onTranscript }: VoiceRecorderProps) {
       type="button"
       className="secondary-button"
       onClick={startRecording}
+      disabled={disabled}
     >
       Почати запис
     </button>

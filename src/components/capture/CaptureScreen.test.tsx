@@ -11,6 +11,12 @@ const draftStoreMocks = vi.hoisted(() => ({
   save: vi.fn(),
 }));
 
+const analyticsMocks = vi.hoisted(() => ({ track: vi.fn() }));
+
+vi.mock("@/lib/analytics", () => ({
+  trackSafeEvent: analyticsMocks.track,
+}));
+
 vi.mock("@/features/capture/infrastructure/draftStore", () => ({
   clearCaptureDraft: draftStoreMocks.clear,
   loadCaptureDraft: draftStoreMocks.load,
@@ -21,6 +27,7 @@ beforeEach(() => {
   draftStoreMocks.clear.mockReset().mockResolvedValue(undefined);
   draftStoreMocks.load.mockReset().mockResolvedValue("");
   draftStoreMocks.save.mockReset().mockResolvedValue(undefined);
+  analyticsMocks.track.mockReset();
 });
 
 afterEach(() => {
@@ -66,6 +73,39 @@ it("shows editable preview and persists only after confirmation", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Додати все" }));
 
   expect(saved).toHaveLength(1);
+  expect(analyticsMocks.track).toHaveBeenCalledWith("capture_confirmed");
+});
+
+it("reports a parse failure without sending note content to analytics", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 500 })));
+  render(
+    <TaskProvider repository={createMemoryTaskRepository()}>
+      <CaptureScreen />
+    </TaskProvider>,
+  );
+
+  await userEvent.type(screen.getByLabelText("Ваша нотатка"), "Приватна нотатка");
+  await userEvent.click(screen.getByRole("button", { name: "Розібрати" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Не вдалося проаналізувати нотатку",
+  );
+  expect(analyticsMocks.track).toHaveBeenCalledWith("parse_failed");
+  expect(analyticsMocks.track).toHaveBeenCalledOnce();
+});
+
+it("keeps the local draft editable while AI parsing is unavailable", async () => {
+  render(
+    <TaskProvider repository={createMemoryTaskRepository()}>
+      <CaptureScreen aiAvailable={false} />
+    </TaskProvider>,
+  );
+
+  const note = screen.getByLabelText("Ваша нотатка");
+  await userEvent.type(note, "Локальна чернетка");
+
+  expect(note).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Розібрати" })).toBeDisabled();
 });
 
 it("waits for the latest draft write before clearing it on confirmation", async () => {

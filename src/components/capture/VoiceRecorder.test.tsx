@@ -7,8 +7,14 @@ const transcriptionMocks = vi.hoisted(() => ({
   request: vi.fn(),
 }));
 
+const analyticsMocks = vi.hoisted(() => ({ track: vi.fn() }));
+
 vi.mock("@/features/capture/application/transcribeClient", () => ({
   requestTranscription: transcriptionMocks.request,
+}));
+
+vi.mock("@/lib/analytics", () => ({
+  trackSafeEvent: analyticsMocks.track,
 }));
 
 class MockMediaRecorder {
@@ -67,6 +73,7 @@ async function startAndStopRecording() {
 beforeEach(() => {
   MockMediaRecorder.instances = [];
   transcriptionMocks.request.mockReset();
+  analyticsMocks.track.mockReset();
 });
 
 afterEach(() => {
@@ -167,6 +174,27 @@ it("allows a fresh recording after transcription fails", async () => {
 
   await waitFor(() => expect(onTranscript).toHaveBeenCalledWith("Перевірити пошту"));
   expect(getUserMedia).toHaveBeenCalledTimes(2);
+  expect(analyticsMocks.track).toHaveBeenCalledWith("transcription_failed");
+});
+
+it("disables voice transcription while offline", () => {
+  render(<VoiceRecorder onTranscript={vi.fn()} disabled />);
+
+  expect(screen.getByRole("button", { name: "Почати запис" })).toBeDisabled();
+});
+
+it("does not send a recording when the connection is lost before transcription", async () => {
+  microphone();
+  const { rerender } = render(<VoiceRecorder onTranscript={vi.fn()} />);
+
+  await userEvent.click(screen.getByRole("button", { name: "Почати запис" }));
+  const recorder = MockMediaRecorder.instances[0];
+  recorder.emitChunk(new Blob(["voice"], { type: "audio/webm" }));
+  rerender(<VoiceRecorder onTranscript={vi.fn()} disabled />);
+
+  await userEvent.click(screen.getByRole("button", { name: "Зупинити запис" }));
+
+  expect(transcriptionMocks.request).not.toHaveBeenCalled();
 });
 
 it("keeps retry resources isolated from delayed callbacks of a failed recording", async () => {
