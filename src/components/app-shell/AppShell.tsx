@@ -9,7 +9,7 @@ import { CaptureScreen } from "@/components/capture/CaptureScreen";
 import { InboxScreen } from "@/components/tasks/InboxScreen";
 import { PlanScreen } from "@/components/tasks/PlanScreen";
 import { useTasks } from "@/features/tasks/application/TaskProvider";
-import { toLocalDateKey } from "@/features/tasks/domain/dateWindow";
+import { useLocalToday } from "@/features/tasks/application/useLocalToday";
 import { requestLocalPersistence } from "@/lib/storagePersistence";
 
 type Destination = "capture" | "inbox" | "plan";
@@ -24,9 +24,16 @@ export function AppShell() {
   const [destination, setDestination] = useState<Destination>("capture");
   const isOnline = useOnlineStatus();
   const persistenceRequested = useRef(false);
-  const { tasks, error, updateTask, completeTask, restoreTask, deleteTask } =
-    useTasks();
-  const today = toLocalDateKey(new Date());
+  const {
+    tasks,
+    loading,
+    error,
+    updateTask,
+    completeTask,
+    restoreTask,
+    deleteTask,
+  } = useTasks();
+  const today = useLocalToday();
 
   function requestPersistenceAfterFirstSave() {
     if (persistenceRequested.current) return;
@@ -38,6 +45,11 @@ export function AppShell() {
   return (
     <main className="mobile-shell">
       <AppStatus isOnline={isOnline} />
+      {loading ? (
+        <p role="status" aria-label="Локальні задачі" className="storage-help">
+          Завантажуємо локальні задачі…
+        </p>
+      ) : null}
       {destination === "capture" ? (
         <CaptureScreen
           aiAvailable={isOnline}

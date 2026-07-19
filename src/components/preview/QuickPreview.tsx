@@ -10,6 +10,8 @@ import type {
 type QuickPreviewProps = {
   initialTasks: TaskDraft[];
   clarification: string | null;
+  confirmationError?: string | null;
+  storageError?: string | null;
   onCancel(): void;
   onConfirm(tasks: TaskDraft[]): Promise<void>;
 };
@@ -28,12 +30,15 @@ const priorityOptions: Array<{ value: TaskPriority; label: string }> = [
 export function QuickPreview({
   initialTasks,
   clarification,
+  confirmationError = null,
+  storageError = null,
   onCancel,
   onConfirm,
 }: QuickPreviewProps) {
   const [tasks, setTasks] = useState(initialTasks);
   const [isConfirming, setIsConfirming] = useState(false);
   const validTasks = tasks.filter((task) => task.title.trim().length > 0);
+  const hasUnresolvedClarification = clarification !== null;
 
   function updateTask(index: number, patch: Partial<TaskDraft>) {
     setTasks((current) =>
@@ -48,7 +53,9 @@ export function QuickPreview({
   }
 
   async function confirm() {
-    if (validTasks.length === 0 || isConfirming) return;
+    if (validTasks.length === 0 || hasUnresolvedClarification || isConfirming) {
+      return;
+    }
 
     setIsConfirming(true);
     try {
@@ -70,6 +77,18 @@ export function QuickPreview({
       {clarification ? (
         <p className="clarification" role="status">
           {clarification}
+        </p>
+      ) : null}
+
+      {confirmationError ? (
+        <p className="capture-error" role="alert">
+          {confirmationError}
+        </p>
+      ) : null}
+
+      {storageError ? (
+        <p className="capture-error" role="alert">
+          {storageError}
         </p>
       ) : null}
 
@@ -150,10 +169,17 @@ export function QuickPreview({
       <button
         type="button"
         className="primary-button"
-        disabled={validTasks.length === 0 || isConfirming}
+        disabled={
+          validTasks.length === 0 || hasUnresolvedClarification || isConfirming
+        }
+        aria-label={
+          confirmationError
+            ? "Спробувати зберегти задачі ще раз"
+            : undefined
+        }
         onClick={confirm}
       >
-        Додати все
+        {confirmationError ? "Спробувати ще раз" : "Додати все"}
       </button>
     </section>
   );

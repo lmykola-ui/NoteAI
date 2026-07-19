@@ -93,9 +93,12 @@ it("reports denied microphone permission without disabling text capture", async 
 
   await userEvent.click(screen.getByRole("button", { name: "Почати запис" }));
 
-  expect(
-    await screen.findByText("Немає доступу до мікрофона"),
-  ).toBeVisible();
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Немає доступу до мікрофона",
+  );
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "Увімкніть доступ у налаштуваннях браузера",
+  );
   expect(screen.getByRole("button", { name: "Спробувати ще раз" })).toBeEnabled();
 });
 
@@ -183,8 +186,8 @@ it("disables voice transcription while offline", () => {
   expect(screen.getByRole("button", { name: "Почати запис" })).toBeDisabled();
 });
 
-it("does not send a recording when the connection is lost before transcription", async () => {
-  microphone();
+it("immediately stops and discards an active recording when disabled", async () => {
+  const { track } = microphone();
   const { rerender } = render(<VoiceRecorder onTranscript={vi.fn()} />);
 
   await userEvent.click(screen.getByRole("button", { name: "Почати запис" }));
@@ -192,9 +195,50 @@ it("does not send a recording when the connection is lost before transcription",
   recorder.emitChunk(new Blob(["voice"], { type: "audio/webm" }));
   rerender(<VoiceRecorder onTranscript={vi.fn()} disabled />);
 
-  await userEvent.click(screen.getByRole("button", { name: "Зупинити запис" }));
-
+  expect(recorder.stop).toHaveBeenCalledOnce();
+  expect(track.stop).toHaveBeenCalledOnce();
   expect(transcriptionMocks.request).not.toHaveBeenCalled();
+});
+
+it("immediately stops and discards an active recording on an offline event", async () => {
+  const { track } = microphone();
+  Object.defineProperty(navigator, "onLine", {
+    configurable: true,
+    value: true,
+  });
+  render(<VoiceRecorder onTranscript={vi.fn()} />);
+
+  await userEvent.click(screen.getByRole("button", { name: "Почати запис" }));
+  const recorder = MockMediaRecorder.instances[0];
+  recorder.emitChunk(new Blob(["voice"], { type: "audio/webm" }));
+  Object.defineProperty(navigator, "onLine", {
+    configurable: true,
+    value: false,
+  });
+  act(() => window.dispatchEvent(new Event("offline")));
+
+  expect(recorder.stop).toHaveBeenCalledOnce();
+  expect(track.stop).toHaveBeenCalledOnce();
+  expect(transcriptionMocks.request).not.toHaveBeenCalled();
+});
+
+it("keeps a recorder error visible when its delayed stop event arrives", async () => {
+  microphone();
+  render(<VoiceRecorder onTranscript={vi.fn()} />);
+
+  await userEvent.click(screen.getByRole("button", { name: "Почати запис" }));
+  const recorder = MockMediaRecorder.instances[0];
+  recorder.deferStopEvent = true;
+  act(() => recorder.emitError());
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "Не вдалося розпізнати нотатку",
+  );
+
+  act(() => recorder.emitStop());
+
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "Не вдалося розпізнати нотатку",
+  );
 });
 
 it("recovers after going offline while microphone permission is pending", async () => {

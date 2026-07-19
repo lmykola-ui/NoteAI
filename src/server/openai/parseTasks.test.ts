@@ -131,6 +131,68 @@ describe("parseTasksWithClient", () => {
     ).rejects.toThrow("INVALID_AI_RESPONSE");
   });
 
+  it("trims a bounded non-blank clarification outcome", async () => {
+    const parse = vi.fn().mockResolvedValue({
+      output_parsed: {
+        tasks: [],
+        clarification: "  Коли саме запланувати зустріч?  ",
+      },
+    });
+    const client = {
+      responses: { parse },
+    } as unknown as Parameters<typeof parseTasksWithClient>[0];
+
+    await expect(
+      parseTasksWithClient(client, {
+        text: "Заплануй зустріч якось потім",
+        today: "2026-07-19",
+        timeZone: "Europe/Warsaw",
+        inputMethod: "text",
+      }),
+    ).resolves.toEqual({
+      tasks: [],
+      clarification: "Коли саме запланувати зустріч?",
+    });
+  });
+
+  it.each([
+    ["a blank clarification", { tasks: [], clarification: "   " }],
+    [
+      "an overlong clarification",
+      { tasks: [], clarification: "а".repeat(301) },
+    ],
+    [
+      "tasks together with a clarification",
+      {
+        tasks: [
+          {
+            title: "Запланувати зустріч",
+            scheduledDate: null,
+            scheduledTime: null,
+            status: "active",
+            priority: null,
+          },
+        ],
+        clarification: "Коли саме?",
+      },
+    ],
+    ["neither tasks nor a clarification", { tasks: [], clarification: null }],
+  ])("fails closed for %s", async (_case, outputParsed) => {
+    const parse = vi.fn().mockResolvedValue({ output_parsed: outputParsed });
+    const client = {
+      responses: { parse },
+    } as unknown as Parameters<typeof parseTasksWithClient>[0];
+
+    await expect(
+      parseTasksWithClient(client, {
+        text: "Заплануй зустріч",
+        today: "2026-07-19",
+        timeZone: "Europe/Warsaw",
+        inputMethod: "text",
+      }),
+    ).rejects.toThrow("INVALID_AI_RESPONSE");
+  });
+
   it.each([
     ["a whitespace-only title", { title: "   " }],
     ["an impossible calendar date", { scheduledDate: "2026-02-29" }],

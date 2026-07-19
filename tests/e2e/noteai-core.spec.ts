@@ -136,6 +136,96 @@ test("shows an ambiguity clarification without inventing tasks", async ({ page }
   await expect(page.locator(".preview-card")).toHaveCount(0);
 });
 
+test("transcribes voice into editable text and parses only after explicit confirmation", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const track = { stop() {} };
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: {
+        getUserMedia: async () => ({ getTracks: () => [track] }),
+      },
+    });
+
+    class BrowserMockMediaRecorder {
+      state: RecordingState = "inactive";
+      mimeType = "audio/webm;codecs=opus";
+      ondataavailable: ((event: BlobEvent) => void) | null = null;
+      onerror: ((event: Event) => void) | null = null;
+      onstop: ((event: Event) => void) | null = null;
+
+      start() {
+        this.state = "recording";
+      }
+
+      stop() {
+        this.state = "inactive";
+        this.ondataavailable?.({
+          data: new Blob(["mock voice"], { type: this.mimeType }),
+        } as BlobEvent);
+        this.onstop?.(new Event("stop"));
+      }
+    }
+
+    Object.defineProperty(window, "MediaRecorder", {
+      configurable: true,
+      value: BrowserMockMediaRecorder,
+    });
+  });
+
+  let parseRequests = 0;
+  await page.route("**/api/transcribe", async (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ text: "Купити молоко сьогодні" }),
+    }),
+  );
+  await page.route("**/api/parse", async (route) => {
+    parseRequests += 1;
+    const request = route.request().postDataJSON() as ParseRequest & {
+      inputMethod: string;
+    };
+    expect(request).toMatchObject({
+      text: "Купити молоко сьогодні і хліб",
+      inputMethod: "voice",
+    });
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        tasks: [
+          {
+            title: "Купити молоко і хліб",
+            scheduledDate: request.today,
+            scheduledTime: null,
+            status: "active",
+            priority: null,
+            inputMethod: "voice",
+          },
+        ],
+        clarification: null,
+      }),
+    });
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Почати запис" }).click();
+  await page.getByRole("button", { name: "Зупинити запис" }).click();
+  const note = page.getByLabel("Ваша нотатка");
+  await expect(note).toHaveValue("Купити молоко сьогодні");
+  expect(parseRequests).toBe(0);
+
+  await note.fill("Купити молоко сьогодні і хліб");
+  await page.getByRole("button", { name: "Розібрати" }).click();
+
+  await expect(page.getByLabel("Назва задачі")).toHaveValue(
+    "Купити молоко і хліб",
+  );
+  expect(parseRequests).toBe(1);
+});
+
 test("keeps local tasks usable while AI is offline", async ({
   page,
   context,

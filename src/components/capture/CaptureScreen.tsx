@@ -25,7 +25,7 @@ import type {
 type CaptureState =
   | { kind: "editing" }
   | { kind: "parsing" }
-  | { kind: "preview"; result: ParseResult }
+  | { kind: "preview"; result: ParseResult; saveError: string | null }
   | { kind: "cleanup-error"; message: string }
   | { kind: "error"; message: string };
 
@@ -33,6 +33,12 @@ const parseErrorMessage =
   "Не вдалося проаналізувати нотатку. Спробувати ще раз";
 const cleanupErrorMessage =
   "Задачі додано, але нотатку не вдалося очистити. Спробувати ще раз";
+const draftLoadErrorMessage =
+  "Не вдалося відкрити локальну чернетку. Можна продовжити без неї";
+const draftSaveErrorMessage =
+  "Не вдалося зберегти чернетку в цьому браузері. Не закривайте сторінку";
+const taskSaveErrorMessage =
+  "Не вдалося зберегти задачі. Спробуйте ще раз";
 
 type CaptureScreenProps = {
   aiAvailable?: boolean;
@@ -45,9 +51,11 @@ export function CaptureScreen({
 }: CaptureScreenProps) {
   const { addDrafts } = useTasks();
   const [text, setText] = useState("");
+  const [inputMethod, setInputMethod] = useState<InputMethod>("text");
   const [captureState, setCaptureState] = useState<CaptureState>({
     kind: "editing",
   });
+  const [draftStorageError, setDraftStorageError] = useState<string | null>(null);
   const textRef = useRef(text);
   const pendingDraftWrite = useRef(Promise.resolve());
 
@@ -62,23 +70,31 @@ export function CaptureScreen({
       .then((draft) => {
         if (mounted && !textRef.current) setText(draft);
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (mounted) setDraftStorageError(draftLoadErrorMessage);
+      });
 
     return () => {
       mounted = false;
     };
   }, []);
 
-  function changeText(value: string) {
+  function changeText(value: string, transcriptMethod?: InputMethod) {
+    if (transcriptMethod) {
+      setInputMethod(transcriptMethod);
+    } else if (!text || !value) {
+      setInputMethod("text");
+    }
     setText(value);
     pendingDraftWrite.current = pendingDraftWrite.current
       .catch(() => undefined)
       .then(() => saveCaptureDraft(value))
-      .catch(() => undefined);
+      .then(() => setDraftStorageError(null))
+      .catch(() => setDraftStorageError(draftSaveErrorMessage));
   }
 
   async function parseCapture(
-    inputMethod: InputMethod = "text",
+    captureInputMethod: InputMethod = inputMethod,
     captureText = text,
   ) {
     if (!aiAvailable || !isOnlineNow() || !captureText.trim()) return;
@@ -90,10 +106,10 @@ export function CaptureScreen({
         text: captureText,
         today: toLocalDateKey(new Date()),
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        inputMethod,
+        inputMethod: captureInputMethod,
       });
       assertOnline();
-      setCaptureState({ kind: "preview", result });
+      setCaptureState({ kind: "preview", result, saveError: null });
     } catch (error) {
       if (isOfflineError(error) || !isOnlineNow()) {
         setCaptureState({ kind: "editing" });
@@ -106,9 +122,7 @@ export function CaptureScreen({
 
   async function handleTranscript(transcript: string) {
     if (!isOnlineNow()) return;
-    changeText(transcript);
-    await parseCapture("voice", transcript);
-    if (!isOnlineNow()) return;
+    changeText(transcript, "voice");
   }
 
   async function confirmTasks(tasks: ParseResult["tasks"]) {
@@ -119,7 +133,11 @@ export function CaptureScreen({
       trackSafeEvent("capture_confirmed");
       onConfirmedSave?.();
     } catch {
-      setCaptureState({ kind: "error", message: parseErrorMessage });
+      setCaptureState((current) =>
+        current.kind === "preview"
+          ? { ...current, saveError: taskSaveErrorMessage }
+          : current,
+      );
       return;
     }
 
@@ -130,6 +148,8 @@ export function CaptureScreen({
     try {
       await clearCaptureDraft();
       setText("");
+      setInputMethod("text");
+      setDraftStorageError(null);
       setCaptureState({ kind: "editing" });
     } catch {
       setCaptureState({ kind: "cleanup-error", message: cleanupErrorMessage });
@@ -141,6 +161,8 @@ export function CaptureScreen({
       <QuickPreview
         initialTasks={captureState.result.tasks}
         clarification={captureState.result.clarification}
+        confirmationError={captureState.saveError}
+        storageError={draftStorageError}
         onCancel={() => setCaptureState({ kind: "editing" })}
         onConfirm={confirmTasks}
       />
@@ -188,6 +210,11 @@ export function CaptureScreen({
       {captureState.kind === "error" ? (
         <p role="alert" className="capture-error">
           {captureState.message}
+        </p>
+      ) : null}
+      {draftStorageError ? (
+        <p role="alert" className="capture-error">
+          {draftStorageError}
         </p>
       ) : null}
       <button

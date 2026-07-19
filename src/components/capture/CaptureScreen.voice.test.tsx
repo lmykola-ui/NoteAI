@@ -89,11 +89,7 @@ it("keeps a typed draft available when microphone permission is denied", async (
   expect(screen.getByRole("button", { name: "Розібрати" })).toBeEnabled();
 });
 
-it("puts a transcript in the shared textarea and parses it as voice", async () => {
-  let resolveParse!: (response: Response) => void;
-  const parseResponse = new Promise<Response>((resolve) => {
-    resolveParse = resolve;
-  });
+it("puts an editable transcript in the shared textarea and waits for explicit voice parsing", async () => {
   const track = { stop: vi.fn() } as unknown as MediaStreamTrack;
   const stream = {
     getTracks: vi.fn().mockReturnValue([track]),
@@ -102,28 +98,9 @@ it("puts a transcript in the shared textarea and parses it as voice", async () =
     mediaDevices: { getUserMedia: vi.fn().mockResolvedValue(stream) },
   });
   vi.stubGlobal("MediaRecorder", MockMediaRecorder);
-  vi.stubGlobal("fetch", vi.fn().mockReturnValue(parseResponse));
-  captureMocks.transcribe.mockResolvedValue("Купити молоко сьогодні");
-  renderCapture();
-
-  await userEvent.click(screen.getByRole("button", { name: "Почати запис" }));
-  await userEvent.click(screen.getByRole("button", { name: "Зупинити запис" }));
-
-  await waitFor(() =>
-    expect(screen.getByLabelText("Ваша нотатка")).toHaveValue(
-      "Купити молоко сьогодні",
-    ),
-  );
-  const fetchMock = vi.mocked(fetch);
-  expect(fetchMock).toHaveBeenCalledOnce();
-  const [, request] = fetchMock.mock.calls[0] as [string, RequestInit];
-  expect(JSON.parse(request.body as string)).toMatchObject({
-    text: "Купити молоко сьогодні",
-    inputMethod: "voice",
-  });
-
-  await act(async () => {
-    resolveParse(
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
           tasks: [
@@ -140,12 +117,82 @@ it("puts a transcript in the shared textarea and parses it as voice", async () =
         }),
         { status: 200 },
       ),
-    );
-    await parseResponse;
+    ),
+  );
+  captureMocks.transcribe.mockResolvedValue("Купити молоко сьогодні");
+  renderCapture();
+
+  await userEvent.click(screen.getByRole("button", { name: "Почати запис" }));
+  await userEvent.click(screen.getByRole("button", { name: "Зупинити запис" }));
+
+  await waitFor(() =>
+    expect(screen.getByLabelText("Ваша нотатка")).toHaveValue(
+      "Купити молоко сьогодні",
+    ),
+  );
+  const fetchMock = vi.mocked(fetch);
+  expect(fetchMock).not.toHaveBeenCalled();
+
+  await userEvent.type(screen.getByLabelText("Ваша нотатка"), " і хліб");
+  await userEvent.click(screen.getByRole("button", { name: "Розібрати" }));
+
+  expect(fetchMock).toHaveBeenCalledOnce();
+  const [, request] = fetchMock.mock.calls[0] as [string, RequestInit];
+  expect(JSON.parse(request.body as string)).toMatchObject({
+    text: "Купити молоко сьогодні і хліб",
+    inputMethod: "voice",
   });
 
   expect(await screen.findByDisplayValue("Купити молоко")).toBeVisible();
   expect(track.stop).toHaveBeenCalledOnce();
+});
+
+it("resets parsing to text after the user clears a transcript and starts a new note", async () => {
+  const track = { stop: vi.fn() } as unknown as MediaStreamTrack;
+  vi.stubGlobal("navigator", {
+    mediaDevices: {
+      getUserMedia: vi.fn().mockResolvedValue({
+        getTracks: vi.fn().mockReturnValue([track]),
+      } as unknown as MediaStream),
+    },
+  });
+  vi.stubGlobal("MediaRecorder", MockMediaRecorder);
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(
+      JSON.stringify({
+        tasks: [
+          {
+            title: "Написати лист",
+            scheduledDate: null,
+            scheduledTime: null,
+            status: "active",
+            priority: null,
+            inputMethod: "text",
+          },
+        ],
+        clarification: null,
+      }),
+      { status: 200 },
+    ),
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  captureMocks.transcribe.mockResolvedValue("Голосова нотатка");
+  renderCapture();
+
+  await userEvent.click(screen.getByRole("button", { name: "Почати запис" }));
+  await userEvent.click(screen.getByRole("button", { name: "Зупинити запис" }));
+  const textarea = await screen.findByLabelText("Ваша нотатка");
+  await waitFor(() => expect(textarea).toHaveValue("Голосова нотатка"));
+
+  await userEvent.clear(textarea);
+  await userEvent.type(textarea, "Написати лист");
+  await userEvent.click(screen.getByRole("button", { name: "Розібрати" }));
+
+  const [, request] = fetchMock.mock.calls[0] as [string, RequestInit];
+  expect(JSON.parse(request.body as string)).toMatchObject({
+    text: "Написати лист",
+    inputMethod: "text",
+  });
 });
 
 it("discards a deferred transcript when AI becomes unavailable before it resolves", async () => {

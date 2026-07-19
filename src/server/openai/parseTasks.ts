@@ -69,20 +69,26 @@ const aiWireResultSchema = z.object({
   clarification: z.string().max(300).nullable(),
 });
 
-const aiResultSchema = z.object({
-  tasks: z
-    .array(
-      z.object({
-        title: z.string().trim().min(1).max(300),
-        scheduledDate: calendarDateSchema.nullable(),
-        scheduledTime: localTimeSchema.nullable(),
-        status: z.enum(["active", "completed"]),
-        priority: z.enum(["low", "medium", "high"]).nullable(),
-      }),
-    )
-    .max(50),
-  clarification: z.string().max(300).nullable(),
-});
+const aiResultSchema = z
+  .object({
+    tasks: z
+      .array(
+        z.object({
+          title: z.string().trim().min(1).max(300),
+          scheduledDate: calendarDateSchema.nullable(),
+          scheduledTime: localTimeSchema.nullable(),
+          status: z.enum(["active", "completed"]),
+          priority: z.enum(["low", "medium", "high"]).nullable(),
+        }),
+      )
+      .max(50),
+    clarification: z.string().trim().min(1).max(300).nullable(),
+  })
+  .refine(
+    (result) =>
+      (result.tasks.length > 0) !== (result.clarification !== null),
+    { message: "Expected exactly one task or clarification outcome" },
+  );
 
 type ParseRequest = z.infer<typeof parseTaskRequestSchema>;
 type ParserClient = Pick<OpenAI, "responses">;

@@ -124,6 +124,29 @@ it("persists a restored task", async () => {
   expect(saved[0]).toEqual(result.current.tasks[0]);
 });
 
+it("persists a direct task edit before exposing it in provider state", async () => {
+  const existing = makeTask({ title: "Стара назва" });
+  const { repository, saved } = createRepository([existing]);
+  const save = vi.fn(repository.save);
+  const { result } = renderTasks({ ...repository, save });
+
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  await act(() =>
+    result.current.updateTask({
+      ...existing,
+      title: "Нова назва",
+      scheduledDate: "2026-07-20",
+    }),
+  );
+
+  expect(save).toHaveBeenCalledOnce();
+  expect(saved[0]).toMatchObject({
+    title: "Нова назва",
+    scheduledDate: "2026-07-20",
+  });
+  expect(result.current.tasks[0]).toEqual(saved[0]);
+});
+
 it("removes a deleted task from state and the repository", async () => {
   const { repository, saved } = createRepository();
   const { result } = renderTasks(repository);

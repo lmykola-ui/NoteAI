@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { requestTranscription } from "@/features/capture/application/transcribeClient";
 import { trackSafeEvent } from "@/lib/analytics";
 import {
@@ -32,7 +32,21 @@ type RecordingSession = {
   stopTimer: ReturnType<typeof setTimeout> | null;
   discard: boolean;
   finished: boolean;
+  failed: boolean;
 };
+
+function clearStopTimer(session: RecordingSession) {
+  if (session.stopTimer !== null) {
+    clearTimeout(session.stopTimer);
+    session.stopTimer = null;
+  }
+}
+
+function stopTracks(session: RecordingSession) {
+  const stream = session.stream;
+  session.stream = null;
+  stream?.getTracks().forEach((track) => track.stop());
+}
 
 function isPermissionDenied(error: unknown) {
   const name =
@@ -54,31 +68,27 @@ export function VoiceRecorder({
   const activeSessionRef = useRef<RecordingSession | null>(null);
   const disabledRef = useRef(disabled);
 
-  function clearStopTimer(session: RecordingSession) {
-    if (session.stopTimer !== null) {
-      clearTimeout(session.stopTimer);
-      session.stopTimer = null;
+  const discardSession = useCallback((session: RecordingSession) => {
+    session.discard = true;
+    clearStopTimer(session);
+    session.chunks = [];
+    stopTracks(session);
+    if (activeSessionRef.current === session) activeSessionRef.current = null;
+    const recorder = session.recorder;
+    if (recorder && recorder.state !== "inactive") recorder.stop();
+    if (mountedRef.current && generationRef.current === session.generation) {
+      setState("idle");
     }
-  }
-
-  function stopTracks(session: RecordingSession) {
-    const stream = session.stream;
-    session.stream = null;
-    stream?.getTracks().forEach((track) => track.stop());
-  }
+  }, []);
 
   useLayoutEffect(() => {
     disabledRef.current = disabled;
     if (!disabled) return;
 
     const session = activeSessionRef.current;
-    if (!session || session.recorder) return;
-    session.discard = true;
-    activeSessionRef.current = null;
-    if (mountedRef.current && generationRef.current === session.generation) {
-      setState("idle");
-    }
-  }, [disabled]);
+    if (!session) return;
+    discardSession(session);
+  }, [disabled, discardSession]);
 
   async function finishRecording(session: RecordingSession) {
     if (session.finished) return;
@@ -90,7 +100,11 @@ export function VoiceRecorder({
     const chunks = session.chunks;
     session.chunks = [];
     if (session.discard || disabledRef.current || !isOnlineNow()) {
-      if (mountedRef.current && generationRef.current === session.generation) {
+      if (
+        !session.failed &&
+        mountedRef.current &&
+        generationRef.current === session.generation
+      ) {
         setState("idle");
       }
       return;
@@ -142,6 +156,7 @@ export function VoiceRecorder({
       stopTimer: null,
       discard: false,
       finished: false,
+      failed: false,
     };
     generationRef.current = session.generation;
     activeSessionRef.current = session;
@@ -190,6 +205,7 @@ export function VoiceRecorder({
       };
       recorder.onerror = () => {
         session.discard = true;
+        session.failed = true;
         clearStopTimer(session);
         stopTracks(session);
         session.chunks = [];
@@ -235,14 +251,10 @@ export function VoiceRecorder({
     return subscribeToOnlineStatus(() => {
       if (isOnlineNow()) return;
       const session = activeSessionRef.current;
-      if (!session || session.recorder) return;
-      session.discard = true;
-      activeSessionRef.current = null;
-      if (mountedRef.current && generationRef.current === session.generation) {
-        setState("idle");
-      }
+      if (!session) return;
+      discardSession(session);
     });
-  }, []);
+  }, [discardSession]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -287,7 +299,7 @@ export function VoiceRecorder({
       <div className="voice-recorder">
         <p role="alert" className="capture-error">
           {state === "denied"
-            ? "Немає доступу до мікрофона"
+            ? "Немає доступу до мікрофона. Увімкніть доступ у налаштуваннях браузера"
             : "Не вдалося розпізнати нотатку"}
         </p>
         <button

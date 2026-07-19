@@ -31,8 +31,12 @@ function formatPlanDate(date: string): string {
 }
 
 export function PlanScreen({ tasks, today, ...actions }: PlanScreenProps) {
-  const [selectedDate, setSelectedDate] = useState(today);
+  const [storedSelectedDate, setSelectedDate] = useState(today);
   const dates = Array.from({ length: 7 }, (_, index) => addLocalDays(today, index));
+  const selectedDate = dates.includes(storedSelectedDate)
+    ? storedSelectedDate
+    : today;
+
   const selectedTasks = tasks
     .filter(
       (task) => task.status === "active" && task.scheduledDate === selectedDate,

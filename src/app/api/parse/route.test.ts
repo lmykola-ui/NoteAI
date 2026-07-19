@@ -139,4 +139,26 @@ describe("POST /api/parse", () => {
       clarification: null,
     });
   });
+
+  it("rejects a mixed tasks-and-clarification provider outcome", async () => {
+    openAIMocks.parse.mockResolvedValue({
+      output_parsed: {
+        tasks: [
+          {
+            title: "Запланувати зустріч",
+            scheduledDate: null,
+            scheduledTime: null,
+            status: "active",
+            priority: null,
+          },
+        ],
+        clarification: "Коли саме?",
+      },
+    });
+    const POST = await loadPost();
+    const response = await POST(requestWithBody(JSON.stringify(validBody)));
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({ code: "AI_UNAVAILABLE" });
+  });
 });

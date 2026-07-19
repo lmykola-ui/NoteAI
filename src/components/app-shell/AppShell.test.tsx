@@ -83,6 +83,34 @@ it("opens Capture and switches between exactly three destinations", async () => 
   expect(screen.getByRole("heading", { name: "План" })).toBeVisible();
 });
 
+it("announces local task hydration until the repository load settles", async () => {
+  let resolveList!: () => void;
+  const repository = createMemoryTaskRepository();
+  repository.list = vi.fn(
+    () =>
+      new Promise<Awaited<ReturnType<TaskRepository["list"]>>>((resolve) => {
+        resolveList = () => resolve([]);
+      }),
+  );
+
+  render(
+    <TaskProvider repository={repository}>
+      <AppShell />
+    </TaskProvider>,
+  );
+
+  expect(screen.getByRole("status", { name: "Локальні задачі" })).toHaveTextContent(
+    "Завантажуємо локальні задачі",
+  );
+
+  resolveList();
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("status", { name: "Локальні задачі" }),
+    ).not.toBeInTheDocument(),
+  );
+});
+
 it("never starts an AI request from a same-tick offline event", async () => {
   const fetchMock = vi.fn().mockResolvedValue(parsedTaskResponse());
   vi.stubGlobal("fetch", fetchMock);

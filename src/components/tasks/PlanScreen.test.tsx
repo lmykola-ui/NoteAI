@@ -84,3 +84,25 @@ it("orders timed Plan tasks before untimed tasks by creation time", () => {
     .map((card) => card.getAttribute("aria-label"));
   expect(titles).toEqual(["Раніше", "Пізніше", "Без часу"]);
 });
+
+it("moves an expired selection to today when the seven-day window rolls", () => {
+  const newTodayTask = makeTask({
+    id: "new-today",
+    title: "Нова сьогоднішня задача",
+    scheduledDate: "2026-07-20",
+  });
+  const { rerender } = render(
+    <PlanScreen tasks={[todayTask, newTodayTask]} today="2026-07-19" {...actions} />,
+  );
+
+  rerender(
+    <PlanScreen tasks={[todayTask, newTodayTask]} today="2026-07-20" {...actions} />,
+  );
+
+  expect(screen.getByRole("button", { name: /Обрати 20 липня/ })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  expect(screen.getByText("Нова сьогоднішня задача")).toBeVisible();
+  expect(screen.queryByText(todayTask.title)).not.toBeInTheDocument();
+});

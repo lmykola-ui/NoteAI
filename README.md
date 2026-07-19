@@ -68,7 +68,7 @@ measure Ukrainian model quality, spend OpenAI quota, or require a real key.
 Before promoting a Preview deployment, run the opt-in, model-backed evaluation:
 
 ```bash
-OPENAI_API_KEY=your_server_only_project_key pnpm eval:ukrainian:model
+node --env-file=.env.local scripts/ukrainianModelEval.mjs
 ```
 
 This paid command is intentionally excluded from `pnpm test` and the default
@@ -77,6 +77,9 @@ of the ten inputs below using the production system prompt and structured-output
 shape. It must report `10/10 Ukrainian model cases passed.` before promotion.
 Do not treat the mocked parser-contract test or stubbed Playwright API responses
 as a substitute.
+
+Keep the key in the gitignored `.env.local` file created during setup. The
+`--env-file` form avoids putting the credential value in shell history.
 
 The evaluator requires exact task count/order, dates, times, status, priority,
 and null-vs-present clarification. Titles may vary only in grammar while still

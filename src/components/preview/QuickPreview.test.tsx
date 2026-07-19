@@ -44,3 +44,19 @@ it("edits and removes AI suggestions before confirmation", async () => {
     expect.objectContaining({ title: "Купити хліб" }),
   ]);
 });
+
+it("blocks confirmation whenever an unresolved clarification is present", async () => {
+  const onConfirm = vi.fn();
+  render(
+    <QuickPreview
+      initialTasks={[firstDraft]}
+      clarification="Коли саме виконати цю задачу?"
+      onCancel={vi.fn()}
+      onConfirm={onConfirm}
+    />,
+  );
+
+  expect(screen.getByRole("button", { name: "Додати все" })).toBeDisabled();
+  await userEvent.click(screen.getByRole("button", { name: "Додати все" }));
+  expect(onConfirm).not.toHaveBeenCalled();
+});
