@@ -11,11 +11,15 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test --project=mobile-chrome --project=mobile-safari",
+    "test:e2e:install": "playwright install chromium webkit"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "devEngines": {
     "packageManager": {
       "name": "pnpm",
