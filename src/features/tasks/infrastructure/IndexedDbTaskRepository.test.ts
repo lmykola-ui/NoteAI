@@ -1,4 +1,4 @@
-import { noteAiDb } from "./indexedDb";
+import { getNoteAiDb } from "./indexedDb";
 import { indexedDbTaskRepository } from "./IndexedDbTaskRepository";
 import type { Task } from "../domain/task";
 
@@ -16,7 +16,7 @@ const task: Task = {
 };
 
 beforeEach(async () => {
-  const db = await noteAiDb;
+  const db = await getNoteAiDb();
   await db.clear("tasks");
 });
 

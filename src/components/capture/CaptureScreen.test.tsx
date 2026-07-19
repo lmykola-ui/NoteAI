@@ -115,3 +115,49 @@ it("waits for the latest draft write before clearing it on confirmation", async 
 
   await waitFor(() => expect(draftStoreMocks.clear).toHaveBeenCalledOnce());
 });
+
+it("retries draft cleanup without persisting confirmed tasks again", async () => {
+  const repository = createMemoryTaskRepository();
+  draftStoreMocks.clear.mockRejectedValueOnce(new Error("storage unavailable"));
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          tasks: [
+            {
+              title: "Купити молоко",
+              scheduledDate: null,
+              scheduledTime: null,
+              status: "active",
+              priority: null,
+              inputMethod: "text",
+            },
+          ],
+          clarification: null,
+        }),
+        { status: 200 },
+      ),
+    ),
+  );
+  render(
+    <TaskProvider repository={repository}>
+      <CaptureScreen />
+    </TaskProvider>,
+  );
+
+  await userEvent.type(screen.getByLabelText("Ваша нотатка"), "Купити молоко");
+  await userEvent.click(screen.getByRole("button", { name: "Розібрати" }));
+  await userEvent.click(screen.getByRole("button", { name: "Додати все" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Задачі додано, але нотатку не вдалося очистити",
+  );
+  expect(repository.saved).toHaveLength(1);
+  expect(draftStoreMocks.clear).toHaveBeenCalledOnce();
+
+  await userEvent.click(screen.getByRole("button", { name: "Спробувати ще раз" }));
+
+  await waitFor(() => expect(draftStoreMocks.clear).toHaveBeenCalledTimes(2));
+  expect(repository.saved).toHaveLength(1);
+});

@@ -16,10 +16,13 @@ type CaptureState =
   | { kind: "editing" }
   | { kind: "parsing" }
   | { kind: "preview"; result: ParseResult }
+  | { kind: "cleanup-error"; message: string }
   | { kind: "error"; message: string };
 
 const parseErrorMessage =
   "Не вдалося проаналізувати нотатку. Спробувати ще раз";
+const cleanupErrorMessage =
+  "Задачі додано, але нотатку не вдалося очистити. Спробувати ще раз";
 
 export function CaptureScreen() {
   const { addDrafts } = useTasks();
@@ -77,11 +80,21 @@ export function CaptureScreen() {
     try {
       await pendingDraftWrite.current;
       await addDrafts(tasks);
+    } catch {
+      setCaptureState({ kind: "error", message: parseErrorMessage });
+      return;
+    }
+
+    await clearConfirmedDraft();
+  }
+
+  async function clearConfirmedDraft() {
+    try {
       await clearCaptureDraft();
       setText("");
       setCaptureState({ kind: "editing" });
     } catch {
-      setCaptureState({ kind: "error", message: parseErrorMessage });
+      setCaptureState({ kind: "cleanup-error", message: cleanupErrorMessage });
     }
   }
 
@@ -93,6 +106,24 @@ export function CaptureScreen() {
         onCancel={() => setCaptureState({ kind: "editing" })}
         onConfirm={confirmTasks}
       />
+    );
+  }
+
+  if (captureState.kind === "cleanup-error") {
+    return (
+      <section aria-label="Створення нотатки" className="capture-screen">
+        <h1>Що в голові?</h1>
+        <p role="alert" className="capture-error">
+          {captureState.message}
+        </p>
+        <button
+          type="button"
+          className="primary-button"
+          onClick={clearConfirmedDraft}
+        >
+          Спробувати ще раз
+        </button>
+      </section>
     );
   }
 
