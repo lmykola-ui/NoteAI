@@ -18,6 +18,8 @@ type EditableTask = Pick<
   "title" | "scheduledDate" | "scheduledTime" | "priority"
 >;
 
+type TaskAction = (id: string) => void | Promise<void>;
+
 const priorityLabels: Record<NonNullable<TaskPriority>, string> = {
   low: "Низький",
   medium: "Середній",
@@ -50,22 +52,45 @@ export function TaskCard({
 }: TaskCardProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<EditableTask>(() => toEditableTask(task));
+  const [mutationError, setMutationError] = useState<string | null>(null);
 
   function startEditing() {
+    setMutationError(null);
     setDraft(toEditableTask(task));
     setEditing(true);
   }
 
-  function saveChanges(event: FormEvent<HTMLFormElement>) {
+  async function saveChanges(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    void onChange({ ...task, ...draft });
-    setEditing(false);
+    setMutationError(null);
+
+    try {
+      await onChange({ ...task, ...draft });
+      setEditing(false);
+    } catch {
+      setMutationError("Не вдалося зберегти зміни. Спробуйте ще раз.");
+    }
+  }
+
+  async function runTaskAction(action: TaskAction) {
+    setMutationError(null);
+
+    try {
+      await action(task.id);
+    } catch {
+      setMutationError("Не вдалося оновити задачу. Спробуйте ще раз.");
+    }
   }
 
   if (editing) {
     return (
       <article aria-label={task.title} className="task-card">
         <form className="task-edit-form" onSubmit={saveChanges}>
+          {mutationError ? (
+            <p role="alert" className="capture-error">
+              {mutationError}
+            </p>
+          ) : null}
           <label>
             Назва задачі
             <input
@@ -149,23 +174,40 @@ export function TaskCard({
       <p className="task-meta">
         Пріоритет: {task.priority ? priorityLabels[task.priority] : "не вказано"}
       </p>
-      {isOverdue(task.scheduledDate, today) ? (
+      {task.status === "active" && isOverdue(task.scheduledDate, today) ? (
         <p className="task-overdue">Прострочено</p>
+      ) : null}
+      {mutationError ? (
+        <p role="alert" className="capture-error">
+          {mutationError}
+        </p>
       ) : null}
       <div className="task-card-actions">
         <button type="button" className="secondary-button" onClick={startEditing}>
           Редагувати задачу
         </button>
         {task.status === "active" ? (
-          <button type="button" className="secondary-button" onClick={() => void onComplete(task.id)}>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => runTaskAction(onComplete)}
+          >
             Позначити виконаною
           </button>
         ) : (
-          <button type="button" className="secondary-button" onClick={() => void onRestore(task.id)}>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => runTaskAction(onRestore)}
+          >
             Відновити задачу
           </button>
         )}
-        <button type="button" className="secondary-button" onClick={() => void onDelete(task.id)}>
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={() => runTaskAction(onDelete)}
+        >
           Видалити задачу
         </button>
       </div>
