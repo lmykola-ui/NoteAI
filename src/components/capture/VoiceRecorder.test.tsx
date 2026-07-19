@@ -133,7 +133,7 @@ it("transcribes one combined recording and cleans up every media track", async (
   expect(secondTrack.stop).toHaveBeenCalledOnce();
 });
 
-it("stops recording automatically after sixty seconds", async () => {
+it("stops recording one second before the server's sixty-second hard cap", async () => {
   vi.useFakeTimers();
   microphone();
   transcriptionMocks.request.mockResolvedValue("Перевірити пошту");
@@ -146,13 +146,18 @@ it("stops recording automatically after sixty seconds", async () => {
   const recorder = MockMediaRecorder.instances[0];
 
   act(() => {
-    vi.advanceTimersByTime(59_999);
+    vi.advanceTimersByTime(58_999);
   });
   expect(recorder.stop).not.toHaveBeenCalled();
 
   await act(async () => {
     vi.advanceTimersByTime(1);
     await Promise.resolve();
+  });
+  expect(recorder.stop).toHaveBeenCalledOnce();
+
+  act(() => {
+    vi.advanceTimersByTime(1_000);
   });
   expect(recorder.stop).toHaveBeenCalledOnce();
 });
@@ -354,7 +359,7 @@ it("keeps retry resources isolated from delayed callbacks of a failed recording"
   expect(screen.getByRole("button", { name: "Зупинити запис" })).toBeEnabled();
   expect(transcriptionMocks.request).not.toHaveBeenCalled();
 
-  act(() => vi.advanceTimersByTime(59_999));
+  act(() => vi.advanceTimersByTime(58_999));
   expect(secondRecorder.stop).not.toHaveBeenCalled();
   await act(async () => {
     vi.advanceTimersByTime(1);

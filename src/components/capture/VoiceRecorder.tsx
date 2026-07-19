@@ -22,7 +22,10 @@ type VoiceRecorderProps = {
   disabled?: boolean;
 };
 
-const MAX_RECORDING_MS = 60_000;
+const SERVER_AUDIO_DURATION_CAP_MS = 60_000;
+const AUTO_STOP_RECORDING_MS = SERVER_AUDIO_DURATION_CAP_MS - 1_000;
+// Keep one second of headroom because browser timers can run late while the
+// server verifies the recorded duration against its strict 60-second cap.
 
 type RecordingSession = {
   generation: number;
@@ -226,7 +229,7 @@ export function VoiceRecorder({
       setState("recording");
       session.stopTimer = setTimeout(() => {
         if (recorder.state === "recording") recorder.stop();
-      }, MAX_RECORDING_MS);
+      }, AUTO_STOP_RECORDING_MS);
     } catch (error) {
       session.discard = true;
       clearStopTimer(session);
