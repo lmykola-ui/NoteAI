@@ -12,14 +12,14 @@ Prerequisites: Node.js 20.19 or newer and pnpm 11.9 or newer. The application it
    pnpm install
    ```
 
-2. Copy the environment template:
+2. Copy the environment template to the ignored local environment file:
 
    ```bash
-   cp .env.example .env.local
+   cp .env.example .env
    ```
 
-3. Replace `OPENAI_API_KEY` in `.env.local` with an OpenAI project key. It is server-only: never prefix it with `NEXT_PUBLIC_`, commit it, paste it into browser code, or expose it in analytics.
-4. Keep `OPENAI_TASK_MODEL=gpt-5.6-terra` and `OPENAI_TRANSCRIBE_MODEL=gpt-4o-mini-transcribe` unless a deliberate migration has been verified against the [current OpenAI model catalog](https://developers.openai.com/api/docs/models) and [transcription model documentation](https://developers.openai.com/api/docs/models/gpt-4o-mini-transcribe).
+3. Replace `OPENAI_API_KEY` in `.env` with an OpenAI project key. It is server-only: never prefix it with `NEXT_PUBLIC_`, commit it, paste it into browser code, or expose it in analytics.
+4. Keep `OPENAI_MODEL=gpt-5-nano` and `OPENAI_TRANSCRIBE_MODEL=gpt-4o-mini-transcribe` unless a deliberate migration has been verified against the [current OpenAI model catalog](https://developers.openai.com/api/docs/models) and [transcription model documentation](https://developers.openai.com/api/docs/models/gpt-4o-mini-transcribe).
 5. Start the app and open it in a mobile viewport:
 
    ```bash
@@ -68,17 +68,17 @@ measure Ukrainian model quality, spend OpenAI quota, or require a real key.
 Before promoting a Preview deployment, run the opt-in, model-backed evaluation:
 
 ```bash
-node --env-file=.env.local scripts/ukrainianModelEval.mjs
+node --env-file=.env scripts/ukrainianModelEval.mjs
 ```
 
 This paid command is intentionally excluded from `pnpm test` and the default
-local gate. It calls `OPENAI_TASK_MODEL` (default `gpt-5.6-terra`) once for each
+local gate. It calls `OPENAI_MODEL` (default `gpt-5-nano`) once for each
 of the ten inputs below using the production system prompt and structured-output
 shape. It must report `10/10 Ukrainian model cases passed.` before promotion.
 Do not treat the mocked parser-contract test or stubbed Playwright API responses
 as a substitute.
 
-Keep the key in the gitignored `.env.local` file created during setup. The
+Keep the key in the gitignored `.env` file created during setup. The
 `--env-file` form avoids putting the credential value in shell history.
 
 The evaluator requires exact task count/order, dates, times, status, priority,
@@ -112,7 +112,7 @@ No deployment command is required from a local machine. In the Vercel project co
 1. Keep the detected framework as Next.js, install command as `pnpm install`, and build command as `pnpm build`.
 2. Add these variables separately to both **Preview** and **Production** environments:
    - `OPENAI_API_KEY` — server-only project key;
-   - `OPENAI_TASK_MODEL` — `gpt-5.6-terra`;
+   - `OPENAI_MODEL` — `gpt-5-nano`;
    - `OPENAI_TRANSCRIBE_MODEL` — `gpt-4o-mini-transcribe`;
    - `NEXT_PUBLIC_ENABLE_ANALYTICS` — `false` by default; use `true` only for the privacy-bounded custom events described below.
 3. Trigger a new deployment after changing environment variables. A previous deployment does not receive newly added or changed build-time public variables.

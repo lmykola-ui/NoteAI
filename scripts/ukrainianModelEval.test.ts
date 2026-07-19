@@ -4,12 +4,21 @@ import { expect, it, vi } from "vitest";
 import { ukrainianParserContractCases } from "../tests/fixtures/ukrainian-cases";
 import {
   evaluateUkrainianModelCase,
+  resolveUkrainianModel,
   runUkrainianModelEval,
   ukrainianModelEvalCases,
 } from "./ukrainianModelEval.mjs";
 
 it("provides an opt-in model-backed Ukrainian evaluation harness", () => {
   expect(existsSync("scripts/ukrainianModelEval.mjs")).toBe(true);
+});
+
+it("uses the configured OpenAI model and falls back to gpt-5-nano", () => {
+  expect(resolveUkrainianModel({ OPENAI_MODEL: "configured-model" })).toBe(
+    "configured-model",
+  );
+  expect(resolveUkrainianModel({})).toBe("gpt-5-nano");
+  expect(resolveUkrainianModel({ OPENAI_MODEL: "" })).toBe("gpt-5-nano");
 });
 
 it("evaluates the exact same ten inputs as the mocked parser contract", () => {

@@ -298,6 +298,10 @@ export async function runUkrainianModelEval({ client, model }) {
   return results;
 }
 
+export function resolveUkrainianModel(env) {
+  return env.OPENAI_MODEL || "gpt-5-nano";
+}
+
 async function main() {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -306,7 +310,7 @@ async function main() {
     return;
   }
 
-  const model = process.env.OPENAI_TASK_MODEL ?? "gpt-5.6-terra";
+  const model = resolveUkrainianModel(process.env);
   const results = await runUkrainianModelEval({
     client: new OpenAI({ apiKey }),
     model,

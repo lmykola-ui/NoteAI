@@ -23,6 +23,10 @@ export function evaluateUkrainianModelCase(
   actual: { tasks: ModelTask[]; clarification: string | null },
 ): string[];
 
+export function resolveUkrainianModel(env: {
+  OPENAI_MODEL?: string;
+}): string;
+
 export function runUkrainianModelEval(options: {
   client: {
     responses: {
