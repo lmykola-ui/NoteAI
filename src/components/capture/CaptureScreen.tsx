@@ -191,7 +191,10 @@ export function CaptureScreen({
   const isParsing = captureState.kind === "parsing";
 
   return (
-    <section aria-label="Створення нотатки" className="capture-screen">
+    <section
+      aria-label="Створення нотатки"
+      className="capture-screen screen-enter"
+    >
       {!text ? (
         <p className="capture-helper">Скажіть усе як є. Решту впорядкуємо.</p>
       ) : null}

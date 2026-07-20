@@ -40,7 +40,7 @@ export function PlanScreen({ tasks, today, ...actions }: PlanScreenProps) {
   const todayTasks = activeTasks.filter((task) => task.scheduledDate === today);
 
   return (
-    <section className="task-screen" aria-label="План">
+    <section className="task-screen screen-enter" aria-label="План">
       <div className="plan-header">
         <h1>{period === "today" ? "Сьогодні" : "Тиждень"}</h1>
         <PeriodMenu value={period} onChange={setPeriod} />

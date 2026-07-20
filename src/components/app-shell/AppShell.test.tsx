@@ -84,6 +84,9 @@ it("opens Capture and exposes exactly three icon-only destinations", async () =>
 
   await user.click(screen.getByRole("button", { name: "Inbox" }));
   expect(screen.getByRole("heading", { name: "Inbox" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "Inbox" }).parentElement).toHaveClass(
+    "screen-enter",
+  );
   expect(screen.getByRole("button", { name: "Inbox" })).toHaveAttribute(
     "aria-current",
     "page",

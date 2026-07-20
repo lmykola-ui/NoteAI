@@ -6,6 +6,7 @@ import type {
   TaskPriority,
   TaskStatus,
 } from "@/features/tasks/domain/task";
+import { AppIcon } from "@/components/icons/AppIcon";
 
 type QuickPreviewProps = {
   initialTasks: TaskDraft[];
@@ -26,6 +27,12 @@ const priorityOptions: Array<{ value: TaskPriority; label: string }> = [
   { value: "medium", label: "Середній" },
   { value: "high", label: "Високий" },
 ];
+
+function draftPriorityClass(priority: TaskPriority | null): string {
+  if (priority === "high") return "priority-high";
+  if (priority === "medium") return "priority-medium";
+  return "priority-normal";
+}
 
 export function QuickPreview({
   initialTasks,
@@ -66,11 +73,20 @@ export function QuickPreview({
   }
 
   return (
-    <section aria-label="Попередній перегляд задач" className="quick-preview">
+    <section
+      aria-label="Попередній перегляд задач"
+      className="quick-preview screen-enter"
+    >
       <div className="preview-heading">
         <h2>Перевірте задачі</h2>
-        <button type="button" className="secondary-button" onClick={onCancel}>
-          Назад
+        <button
+          type="button"
+          className="task-icon-button"
+          aria-label="Назад"
+          title="Назад"
+          onClick={onCancel}
+        >
+          <AppIcon name="close" size={18} decorative />
         </button>
       </div>
 
@@ -94,7 +110,10 @@ export function QuickPreview({
 
       <div className="preview-cards">
         {tasks.map((task, index) => (
-          <article className="preview-card" key={index}>
+          <article
+            className={`preview-card ${draftPriorityClass(task.priority)}`}
+            key={index}
+          >
             <label>
               Назва задачі
               <input
@@ -157,10 +176,12 @@ export function QuickPreview({
             </label>
             <button
               type="button"
-              className="secondary-button"
+              className="task-icon-button preview-delete-button"
+              aria-label="Видалити пропозицію"
+              title="Видалити"
               onClick={() => removeTask(index)}
             >
-              Видалити пропозицію
+              <AppIcon name="trash" size={18} decorative />
             </button>
           </article>
         ))}

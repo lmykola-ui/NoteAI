@@ -20,7 +20,7 @@ export function InboxScreen({ tasks, today, ...actions }: InboxScreenProps) {
   const completedTasks = tasks.filter((task) => task.status === "completed");
 
   return (
-    <section className="task-screen" aria-label="Inbox">
+    <section className="task-screen screen-enter" aria-label="Inbox">
       <h1>Inbox</h1>
       {activeTasks.length ? (
         <div className="task-list">
