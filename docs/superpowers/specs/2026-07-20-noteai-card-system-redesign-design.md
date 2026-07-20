@@ -1,7 +1,7 @@
 # NoteAI Card-System Redesign
 
 Date: 2026-07-20  
-Status: Approved visual direction; awaiting written-spec review
+Status: Approved design
 
 ## 1. Goal
 
@@ -64,6 +64,23 @@ Primary headings use strong weight and tight spacing. Supporting text is smaller
 - Bottom navigation radius: 22 px.
 - Minimum interactive target: 44 x 44 px.
 - Use an 8 px spacing rhythm.
+
+### Motion
+
+Use one restrained motion system throughout the application. Animation supports orientation and state recognition; it is never decorative.
+
+- Standard duration: 160-200 ms.
+- Small controls and menus: 120-160 ms.
+- Easing: `cubic-bezier(0.22, 1, 0.36, 1)` for entrances and `ease-in` for exits.
+- Screen changes: 8 px vertical movement plus opacity.
+- Recorder state changes: soft opacity/scale transition between idle, recording, transcribing, and transcript surfaces.
+- Period menu: anchored fade and scale from the top-right trigger.
+- Today/Week change: heading crossfade followed by a light card entrance; no large horizontal slide.
+- Task cards: subtle entrance and completion feedback without bouncing or long stagger sequences.
+- Buttons: 80-120 ms press response using a maximum scale of `0.98`.
+- The waveform is the only continuous animation and reflects actual audio amplitude.
+
+Under `prefers-reduced-motion: reduce`, remove movement and scaling, shorten fades to near-instant transitions, and keep all state changes understandable without animation.
 
 ## 4. Capture Flow
 
@@ -234,6 +251,7 @@ No UI component accesses IndexedDB or OpenAI directly.
 - Recording state is announced through a polite live region without announcing every waveform update.
 - Waveform bars are hidden from the accessibility tree.
 - Period menu supports keyboard navigation, Escape, and focus return.
+- Motion respects `prefers-reduced-motion` and never blocks input during a transition.
 - Controls remain usable at 200% text zoom and on a 320 px-wide viewport.
 - Tap targets are at least 44 x 44 px.
 
