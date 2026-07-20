@@ -9,6 +9,7 @@ import {
   subscribeToOnlineStatus,
 } from "@/lib/connectivity";
 import { AudioWaveform } from "./AudioWaveform";
+import { mapVoiceLevels } from "./audioLevels";
 import { AppIcon } from "@/components/icons/AppIcon";
 
 type RecorderState =
@@ -237,18 +238,7 @@ export function VoiceRecorder({
         }
 
         analyser.getByteTimeDomainData(samples);
-        const sum = samples.reduce((total, sample) => {
-          const centered = (sample - 128) / 128;
-          return total + centered * centered;
-        }, 0);
-        const amplitude = Math.min(1, Math.sqrt(sum / samples.length) * 4.5);
-        setLevels((current) =>
-          current.map((previous, index) => {
-            const centerWeight = 1 - Math.abs(index - 6) / 9;
-            const target = Math.max(0.06, amplitude * centerWeight);
-            return previous * 0.68 + target * 0.32;
-          }),
-        );
+        setLevels((current) => mapVoiceLevels(samples, current));
         session.animationFrame = requestAnimationFrame(sampleLevels);
       };
       session.animationFrame = requestAnimationFrame(sampleLevels);
