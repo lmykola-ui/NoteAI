@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import { ukrainianParserContractCases } from "../../../tests/fixtures/ukrainian-cases";
 import { parseTasksWithClient } from "./parseTasks";
 
@@ -129,6 +130,7 @@ describe("parseTasksWithClient", () => {
         inputMethod: "text",
       }),
     ).rejects.toThrow("INVALID_AI_RESPONSE");
+    expect(parse).toHaveBeenCalledTimes(2);
   });
 
   it("trims a bounded non-blank clarification outcome", async () => {
@@ -157,27 +159,8 @@ describe("parseTasksWithClient", () => {
 
   it.each([
     ["a blank clarification", { tasks: [], clarification: "   " }],
-    [
-      "an overlong clarification",
-      { tasks: [], clarification: "а".repeat(301) },
-    ],
-    [
-      "tasks together with a clarification",
-      {
-        tasks: [
-          {
-            title: "Запланувати зустріч",
-            scheduledDate: null,
-            scheduledTime: null,
-            status: "active",
-            priority: null,
-          },
-        ],
-        clarification: "Коли саме?",
-      },
-    ],
     ["neither tasks nor a clarification", { tasks: [], clarification: null }],
-  ])("fails closed for %s", async (_case, outputParsed) => {
+  ])("fails closed after two attempts for %s", async (_case, outputParsed) => {
     const parse = vi.fn().mockResolvedValue({ output_parsed: outputParsed });
     const client = {
       responses: { parse },
@@ -191,23 +174,126 @@ describe("parseTasksWithClient", () => {
         inputMethod: "text",
       }),
     ).rejects.toThrow("INVALID_AI_RESPONSE");
+    expect(parse).toHaveBeenCalledTimes(2);
   });
 
-  it.each([
-    ["a whitespace-only title", { title: "   " }],
-    ["an impossible calendar date", { scheduledDate: "2026-02-29" }],
-    ["an impossible time", { scheduledTime: "24:00" }],
-  ])("fails closed when parsed output contains %s", async (_case, override) => {
+  it("bounds a clarification to 300 characters", async () => {
+    const parse = vi.fn().mockResolvedValue({
+      output_parsed: {
+        tasks: [],
+        clarification: `  ${"а".repeat(301)}  `,
+      },
+    });
+    const client = {
+      responses: { parse },
+    } as unknown as Parameters<typeof parseTasksWithClient>[0];
+
+    await expect(
+      parseTasksWithClient(client, {
+        text: "Заплануй зустріч",
+        today: "2026-07-19",
+        timeZone: "Europe/Warsaw",
+        inputMethod: "text",
+      }),
+    ).resolves.toEqual({
+      tasks: [],
+      clarification: "а".repeat(300),
+    });
+    expect(parse).toHaveBeenCalledOnce();
+  });
+
+  it("keeps tasks and discards a simultaneous clarification", async () => {
     const parse = vi.fn().mockResolvedValue({
       output_parsed: {
         tasks: [
           {
-            title: "Купити молоко",
-            scheduledDate: "2026-07-19",
-            scheduledTime: "09:30",
+            title: "  Запланувати зустріч  ",
+            scheduledDate: null,
+            scheduledTime: null,
             status: "active",
             priority: null,
-            ...override,
+          },
+        ],
+        clarification: "Коли саме?",
+      },
+    });
+    const client = {
+      responses: { parse },
+    } as unknown as Parameters<typeof parseTasksWithClient>[0];
+
+    await expect(
+      parseTasksWithClient(client, {
+        text: "Заплануй зустріч",
+        today: "2026-07-19",
+        timeZone: "Europe/Warsaw",
+        inputMethod: "text",
+      }),
+    ).resolves.toEqual({
+      tasks: [
+        {
+          title: "Запланувати зустріч",
+          scheduledDate: null,
+          scheduledTime: null,
+          status: "active",
+          priority: null,
+          inputMethod: "text",
+        },
+      ],
+      clarification: null,
+    });
+  });
+
+  it("keeps a task while discarding an impossible optional date and time", async () => {
+    const parse = vi.fn().mockResolvedValue({
+      output_parsed: {
+        tasks: [
+          {
+            title: "  Купити молоко  ",
+            scheduledDate: "2026-02-29",
+            scheduledTime: "24:00",
+            status: "active",
+            priority: null,
+          },
+        ],
+        clarification: "Коли саме?",
+      },
+    });
+    const client = {
+      responses: { parse },
+    } as unknown as Parameters<typeof parseTasksWithClient>[0];
+
+    await expect(
+      parseTasksWithClient(client, {
+        text: "Купити молоко",
+        today: "2026-07-19",
+        timeZone: "Europe/Warsaw",
+        inputMethod: "text",
+      }),
+    ).resolves.toEqual({
+      tasks: [
+        {
+          title: "Купити молоко",
+          scheduledDate: null,
+          scheduledTime: null,
+          status: "active",
+          priority: null,
+          inputMethod: "text",
+        },
+      ],
+      clarification: null,
+    });
+  });
+
+  it("discards blank tasks and fails after two attempts", async () => {
+    const parse = vi.fn().mockResolvedValue({
+      output_parsed: {
+        tasks: [
+          {
+            title: "   ",
+            scheduledDate: null,
+            scheduledTime: null,
+            status: "active",
+            priority: null,
           },
         ],
         clarification: null,
@@ -225,5 +311,165 @@ describe("parseTasksWithClient", () => {
         inputMethod: "text",
       }),
     ).rejects.toThrow("INVALID_AI_RESPONSE");
+    expect(parse).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries once after an SDK structured-output parse failure", async () => {
+    const schemaFailure = (() => {
+      try {
+        z.string().parse(123);
+      } catch (error) {
+        return error;
+      }
+    })();
+    const parse = vi
+      .fn()
+      .mockRejectedValueOnce(schemaFailure)
+      .mockResolvedValueOnce({
+        output_parsed: {
+          tasks: [
+            {
+              title: "Купити молоко",
+              scheduledDate: null,
+              scheduledTime: null,
+              status: "active",
+              priority: null,
+            },
+          ],
+          clarification: null,
+        },
+      });
+    const client = {
+      responses: { parse },
+    } as unknown as Parameters<typeof parseTasksWithClient>[0];
+
+    await expect(
+      parseTasksWithClient(client, {
+        text: "Купити молоко",
+        today: "2026-07-19",
+        timeZone: "Europe/Warsaw",
+        inputMethod: "text",
+      }),
+    ).resolves.toMatchObject({
+      tasks: [expect.objectContaining({ title: "Купити молоко" })],
+      clarification: null,
+    });
+    expect(parse).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries a bundled ZodError from a different module instance", async () => {
+    const ForeignZodError = class ZodError extends Error {};
+    const parse = vi
+      .fn()
+      .mockRejectedValueOnce(new ForeignZodError("private model output"))
+      .mockResolvedValueOnce({
+        output_parsed: {
+          tasks: [
+            {
+              title: "Купити молоко",
+              scheduledDate: null,
+              scheduledTime: null,
+              status: "active",
+              priority: null,
+            },
+          ],
+          clarification: null,
+        },
+      });
+    const client = {
+      responses: { parse },
+    } as unknown as Parameters<typeof parseTasksWithClient>[0];
+
+    await expect(
+      parseTasksWithClient(client, {
+        text: "Купити молоко",
+        today: "2026-07-19",
+        timeZone: "Europe/Warsaw",
+        inputMethod: "text",
+      }),
+    ).resolves.toMatchObject({
+      tasks: [expect.objectContaining({ title: "Купити молоко" })],
+      clarification: null,
+    });
+    expect(parse).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries a local OpenAI parser error without an API status", async () => {
+    const ForeignOpenAIError = class OpenAIError extends Error {};
+    const parse = vi
+      .fn()
+      .mockRejectedValueOnce(new ForeignOpenAIError("private model output"))
+      .mockResolvedValueOnce({
+        output_parsed: {
+          tasks: [
+            {
+              title: "Купити молоко",
+              scheduledDate: null,
+              scheduledTime: null,
+              status: "active",
+              priority: null,
+            },
+          ],
+          clarification: null,
+        },
+      });
+    const client = {
+      responses: { parse },
+    } as unknown as Parameters<typeof parseTasksWithClient>[0];
+
+    await expect(
+      parseTasksWithClient(client, {
+        text: "Купити молоко",
+        today: "2026-07-19",
+        timeZone: "Europe/Warsaw",
+        inputMethod: "text",
+      }),
+    ).resolves.toMatchObject({
+      tasks: [expect.objectContaining({ title: "Купити молоко" })],
+      clarification: null,
+    });
+    expect(parse).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry a provider API error", async () => {
+    class RateLimitError extends Error {
+      status = 429;
+      code = "rate_limit_exceeded";
+    }
+
+    const providerError = new RateLimitError("provider detail");
+    const parse = vi.fn().mockRejectedValue(providerError);
+    const client = {
+      responses: { parse },
+    } as unknown as Parameters<typeof parseTasksWithClient>[0];
+
+    await expect(
+      parseTasksWithClient(client, {
+        text: "Купити молоко",
+        today: "2026-07-19",
+        timeZone: "Europe/Warsaw",
+        inputMethod: "text",
+      }),
+    ).rejects.toBe(providerError);
+    expect(parse).toHaveBeenCalledOnce();
+  });
+
+  it("fails after two unusable structured responses", async () => {
+    const parse = vi.fn().mockResolvedValue({
+      output_parsed: { tasks: [], clarification: null },
+    });
+    const client = {
+      responses: { parse },
+    } as unknown as Parameters<typeof parseTasksWithClient>[0];
+
+    await expect(
+      parseTasksWithClient(client, {
+        text: "Купити молоко",
+        today: "2026-07-19",
+        timeZone: "Europe/Warsaw",
+        inputMethod: "text",
+      }),
+    ).rejects.toThrow("INVALID_AI_RESPONSE");
+    expect(parse).toHaveBeenCalledTimes(2);
   });
 });

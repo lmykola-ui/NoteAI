@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const openAIMocks = vi.hoisted(() => ({
   construct: vi.fn(),
   parse: vi.fn(),
+  consoleError: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -43,10 +44,13 @@ describe("POST /api/parse-note", () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     openAIMocks.construct.mockReset();
     openAIMocks.parse.mockReset();
+    openAIMocks.consoleError.mockReset();
+    vi.spyOn(console, "error").mockImplementation(openAIMocks.consoleError);
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.restoreAllMocks();
   });
 
   it("rejects malformed JSON before contacting OpenAI", async () => {
@@ -84,13 +88,32 @@ describe("POST /api/parse-note", () => {
     expect(openAIMocks.construct).not.toHaveBeenCalled();
   });
 
-  it("maps a provider failure to AI_UNAVAILABLE", async () => {
-    openAIMocks.parse.mockRejectedValue(new Error("provider unavailable"));
+  it("logs only safe diagnostics and maps a provider failure to AI_UNAVAILABLE", async () => {
+    class RateLimitError extends Error {}
+    openAIMocks.parse.mockRejectedValue(
+      Object.assign(new RateLimitError("Bearer sk-proj-secret"), {
+        status: 429,
+        code: "insufficient_quota",
+        requestID: "req_route_123",
+        response: { body: validBody.text },
+      }),
+    );
     const POST = await loadPost();
     const response = await POST(requestWithBody(JSON.stringify(validBody)));
 
     expect(response.status).toBe(502);
     await expect(response.json()).resolves.toEqual({ code: "AI_UNAVAILABLE" });
+    expect(openAIMocks.consoleError).toHaveBeenCalledWith({
+      event: "openai_request_failed",
+      errorType: "rate_limit",
+      status: 429,
+      code: "insufficient_quota",
+      requestId: "req_route_123",
+      timedOut: false,
+    });
+    const logged = JSON.stringify(openAIMocks.consoleError.mock.calls);
+    expect(logged).not.toContain("sk-proj-secret");
+    expect(logged).not.toContain(validBody.text);
   });
 
   it("loads without credentials and maps their absence to AI_UNAVAILABLE", async () => {
@@ -140,7 +163,7 @@ describe("POST /api/parse-note", () => {
     });
   });
 
-  it("rejects a mixed tasks-and-clarification provider outcome", async () => {
+  it("keeps tasks from a mixed tasks-and-clarification provider outcome", async () => {
     openAIMocks.parse.mockResolvedValue({
       output_parsed: {
         tasks: [
@@ -158,7 +181,19 @@ describe("POST /api/parse-note", () => {
     const POST = await loadPost();
     const response = await POST(requestWithBody(JSON.stringify(validBody)));
 
-    expect(response.status).toBe(502);
-    await expect(response.json()).resolves.toEqual({ code: "AI_UNAVAILABLE" });
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      tasks: [
+        {
+          title: "Запланувати зустріч",
+          scheduledDate: null,
+          scheduledTime: null,
+          status: "active",
+          priority: null,
+          inputMethod: "text",
+        },
+      ],
+      clarification: null,
+    });
   });
 });
