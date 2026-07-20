@@ -44,7 +44,9 @@ button:active:not(:disabled) { transform: scale(.98); }
 button:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--info); outline-offset: 3px; }
 @keyframes screen-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .audio-waveform { height: 104px; display: flex; align-items: center; justify-content: center; gap: 5px; }
-.audio-waveform i { width: 4px; height: max(6px, calc(var(--level) * 82px)); border-radius: 999px; background: #dde0dc; transition: height 90ms linear; }
+.audio-waveform i { width: 4px; height: max(6px, calc(var(--level) * 82px)); border-radius: 999px; background: #dde0dc; transform-origin: center; transition: height 90ms linear; }
+.audio-waveform.is-fallback-active i { animation: waveform-fallback var(--fallback-duration) ease-in-out var(--fallback-delay) infinite; }
+@keyframes waveform-fallback { 0%, 100% { transform: scaleY(.78); } 50% { transform: scaleY(var(--fallback-peak)); } }
 .capture-state-enter { animation: capture-state-enter var(--motion-standard) var(--motion-ease) both; }
 .recording-card { display: grid; gap: 14px; min-height: 270px; padding: 18px; border: 1px solid var(--border); border-radius: 28px; background: var(--surface); }
 .recording-heading { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: .8rem; }

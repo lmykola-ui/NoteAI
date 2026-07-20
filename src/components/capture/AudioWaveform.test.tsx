@@ -11,3 +11,13 @@ it("renders clamped level bars hidden from assistive technology", () => {
   expect(bars[0]).toHaveStyle("--level: 0");
   expect(bars[3]).toHaveStyle("--level: 1");
 });
+
+it("marks a fallback waveform and staggers its bars", () => {
+  render(<AudioWaveform levels={[0.1, 0.2]} fallbackActive />);
+
+  const waveform = screen.getByTestId("audio-waveform");
+  const bars = waveform.querySelectorAll("i");
+  expect(waveform).toHaveClass("is-fallback-active");
+  expect(bars[0]).toHaveStyle("--bar-index: 0");
+  expect(bars[1]).toHaveStyle("--bar-index: 1");
+});

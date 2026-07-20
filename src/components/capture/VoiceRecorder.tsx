@@ -19,6 +19,8 @@ type RecorderState =
   | "denied"
   | "error";
 
+type VisualizerMode = "static" | "live" | "fallback";
+
 type VoiceRecorderProps = {
   onTranscript: (text: string) => void | Promise<void>;
   disabled?: boolean;
@@ -91,6 +93,8 @@ export function VoiceRecorder({
 }: VoiceRecorderProps) {
   const [state, setState] = useState<RecorderState>("idle");
   const [levels, setLevels] = useState(QUIET_LEVELS);
+  const [visualizerMode, setVisualizerMode] =
+    useState<VisualizerMode>("static");
   const mountedRef = useRef(true);
   const generationRef = useRef(0);
   const activeSessionRef = useRef<RecordingSession | null>(null);
@@ -106,6 +110,8 @@ export function VoiceRecorder({
     const recorder = session.recorder;
     if (recorder && recorder.state !== "inactive") recorder.stop();
     if (mountedRef.current && generationRef.current === session.generation) {
+      setLevels(QUIET_LEVELS);
+      setVisualizerMode("static");
       setState("idle");
     }
   }, []);
@@ -125,6 +131,10 @@ export function VoiceRecorder({
     clearStopTimer(session);
     stopAudioAnalysis(session);
     stopTracks(session);
+    if (mountedRef.current && generationRef.current === session.generation) {
+      setLevels(QUIET_LEVELS);
+      setVisualizerMode("static");
+    }
     if (activeSessionRef.current === session) activeSessionRef.current = null;
 
     const chunks = session.chunks;
@@ -182,16 +192,31 @@ export function VoiceRecorder({
   ) {
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
       setLevels(QUIET_LEVELS);
+      setVisualizerMode("static");
       return;
     }
 
     const AudioContextClass = window.AudioContext;
     if (!AudioContextClass) {
       setLevels(QUIET_LEVELS);
+      setVisualizerMode("fallback");
       return;
     }
 
     const audioContext = new AudioContextClass();
+    setVisualizerMode("live");
+    if (audioContext.state === "suspended") {
+      void audioContext.resume().catch(() => {
+        if (
+          mountedRef.current &&
+          activeSessionRef.current === session &&
+          !session.discard
+        ) {
+          setLevels(QUIET_LEVELS);
+          setVisualizerMode("fallback");
+        }
+      });
+    }
     const analyser = audioContext.createAnalyser();
     const source = audioContext.createMediaStreamSource(stream);
     analyser.fftSize = 64;
@@ -232,6 +257,8 @@ export function VoiceRecorder({
 
   async function startRecording() {
     if (disabled || !isOnlineNow()) return;
+    setLevels(QUIET_LEVELS);
+    setVisualizerMode("static");
     setState("requesting");
     const session: RecordingSession = {
       generation: generationRef.current + 1,
@@ -301,6 +328,8 @@ export function VoiceRecorder({
         stopTracks(session);
         session.chunks = [];
         if (mountedRef.current && activeSessionRef.current === session) {
+          setLevels(QUIET_LEVELS);
+          setVisualizerMode("static");
           setState("error");
         }
         if (recorder.state !== "inactive") recorder.stop();
@@ -329,6 +358,8 @@ export function VoiceRecorder({
         activeSessionRef.current = null;
       }
       if (mountedRef.current && generationRef.current === session.generation) {
+        setLevels(QUIET_LEVELS);
+        setVisualizerMode("static");
         setState(isPermissionDenied(error) ? "denied" : "error");
       }
     }
@@ -380,7 +411,10 @@ export function VoiceRecorder({
             Запис
           </span>
         </div>
-        <AudioWaveform levels={levels} />
+        <AudioWaveform
+          levels={levels}
+          fallbackActive={visualizerMode === "fallback"}
+        />
         <button
           type="button"
           className="record-stop-button"

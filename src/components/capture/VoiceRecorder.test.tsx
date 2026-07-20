@@ -110,6 +110,9 @@ it("shows the waveform only while recording", async () => {
   expect(screen.queryByTestId("audio-waveform")).not.toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Почати запис" }));
   expect(screen.getByTestId("audio-waveform")).toBeVisible();
+  expect(screen.getByTestId("audio-waveform")).toHaveClass(
+    "is-fallback-active",
+  );
 
   MockMediaRecorder.instances[0].emitChunk(
     new Blob(["voice"], { type: "audio/webm" }),
@@ -133,7 +136,44 @@ it("keeps the recording indicator static when reduced motion is requested", asyn
   await userEvent.click(screen.getByRole("button", { name: "Почати запис" }));
 
   expect(screen.getByTestId("audio-waveform")).toBeVisible();
+  expect(screen.getByTestId("audio-waveform")).not.toHaveClass(
+    "is-fallback-active",
+  );
   expect(AudioContextMock).not.toHaveBeenCalled();
+});
+
+it("resumes a suspended audio context before sampling live levels", async () => {
+  microphone();
+  const resume = vi.fn().mockResolvedValue(undefined);
+  const analyser = {
+    fftSize: 0,
+    smoothingTimeConstant: 0,
+    disconnect: vi.fn(),
+    getByteTimeDomainData: vi.fn(),
+  };
+  const source = { connect: vi.fn(), disconnect: vi.fn() };
+  const AudioContextMock = vi.fn(function MockAudioContext() {
+    return {
+      state: "suspended",
+      resume,
+      close: vi.fn().mockResolvedValue(undefined),
+      createAnalyser: vi.fn().mockReturnValue(analyser),
+      createMediaStreamSource: vi.fn().mockReturnValue(source),
+    };
+  });
+  vi.stubGlobal("AudioContext", AudioContextMock);
+  vi.stubGlobal(
+    "requestAnimationFrame",
+    vi.fn().mockReturnValue(1),
+  );
+
+  render(<VoiceRecorder onTranscript={vi.fn()} />);
+  await userEvent.click(screen.getByRole("button", { name: "Почати запис" }));
+
+  expect(resume).toHaveBeenCalledOnce();
+  expect(screen.getByTestId("audio-waveform")).not.toHaveClass(
+    "is-fallback-active",
+  );
 });
 
 it("transcribes one combined recording and cleans up every media track", async () => {
