@@ -36,7 +36,16 @@ it("opens on today and exposes the week from the top-right period menu", async (
   await user.click(screen.getByRole("menuitemradio", { name: "Тиждень" }));
 
   expect(screen.getByRole("heading", { name: "Тиждень" })).toBeVisible();
-  expect(screen.getAllByRole("group", { name: /День/ })).toHaveLength(7);
+  expect(screen.getAllByRole("group", { name: /День/ })).toHaveLength(2);
+  expect(
+    screen.getByRole("group", { name: "День 19 липня" }),
+  ).toBeVisible();
+  expect(
+    screen.getByRole("group", { name: "День 20 липня" }),
+  ).toBeVisible();
+  expect(
+    screen.queryByRole("group", { name: "День 21 липня" }),
+  ).not.toBeInTheDocument();
   expect(screen.getByText(todayTask.title)).toBeVisible();
   expect(screen.getByText(tomorrowTask.title)).toBeVisible();
 });

@@ -41,6 +41,10 @@ export function PlanScreen({ tasks, today, ...actions }: PlanScreenProps) {
   const weekTasks = activeTasks.filter(
     (task) => task.scheduledDate && dates.includes(task.scheduledDate),
   );
+  const weekDayGroups = dates.flatMap((date) => {
+    const dayTasks = weekTasks.filter((task) => task.scheduledDate === date);
+    return dayTasks.length ? [{ date, tasks: dayTasks }] : [];
+  });
 
   return (
     <section className="task-screen screen-enter" aria-label="План">
@@ -64,11 +68,7 @@ export function PlanScreen({ tasks, today, ...actions }: PlanScreenProps) {
       ) : (
         weekTasks.length ? (
           <div className="week-list period-content-enter">
-          {dates.map((date) => {
-            const dayTasks = activeTasks.filter(
-              (task) => task.scheduledDate === date,
-            );
-            return (
+          {weekDayGroups.map(({ date, tasks: dayTasks }) => (
               <section
                 key={date}
                 className="week-day"
@@ -76,21 +76,18 @@ export function PlanScreen({ tasks, today, ...actions }: PlanScreenProps) {
                 aria-label={`День ${formatPlanDate(date)}`}
               >
                 <h2>{date === today ? "Сьогодні" : formatPlanDate(date)}</h2>
-                {dayTasks.length ? (
-                  <div className="task-list">
-                    {dayTasks.map((task) => (
-                      <TaskCard
-                        key={task.id}
-                        task={task}
-                        today={today}
-                        {...actions}
-                      />
-                    ))}
-                  </div>
-                ) : null}
+                <div className="task-list">
+                  {dayTasks.map((task) => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      today={today}
+                      {...actions}
+                    />
+                  ))}
+                </div>
               </section>
-            );
-          })}
+          ))}
           </div>
         ) : (
           <p className="empty-state period-content-enter">
