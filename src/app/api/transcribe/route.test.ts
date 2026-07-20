@@ -126,7 +126,7 @@ describe("POST /api/transcribe", () => {
     const response = await POST(audioRequest(audio));
 
     expect(response.status).toBe(200);
-    expect(transcribeMocks.audio).toHaveBeenCalledWith(audio);
+    expect(transcribeMocks.audio).toHaveBeenCalledWith(audio, 60);
   });
 
   it("transcribes a valid server-verified minimal audio fixture", async () => {
@@ -136,7 +136,7 @@ describe("POST /api/transcribe", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ text: "Купити молоко" });
-    expect(transcribeMocks.audio).toHaveBeenCalledWith(audio);
+    expect(transcribeMocks.audio).toHaveBeenCalledWith(audio, 1);
   });
 
   it("accepts a recorder MIME type with codec parameters", async () => {
