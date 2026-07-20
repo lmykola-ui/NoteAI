@@ -58,76 +58,121 @@ const aiWireResultSchema = z.object({
   tasks: z
     .array(
       z.object({
-        title: z.string().min(1).max(300),
-        scheduledDate: z.string().regex(isoDatePattern).nullable(),
-        scheduledTime: z.string().regex(localTimePattern).nullable(),
+        title: z.string(),
+        scheduledDate: z.string().nullable(),
+        scheduledTime: z.string().nullable(),
         status: z.enum(["active", "completed"]),
         priority: z.enum(["low", "medium", "high"]).nullable(),
       }),
-    )
-    .max(50),
-  clarification: z.string().max(300).nullable(),
+    ),
+  clarification: z.string().nullable(),
 });
-
-const aiResultSchema = z
-  .object({
-    tasks: z
-      .array(
-        z.object({
-          title: z.string().trim().min(1).max(300),
-          scheduledDate: calendarDateSchema.nullable(),
-          scheduledTime: localTimeSchema.nullable(),
-          status: z.enum(["active", "completed"]),
-          priority: z.enum(["low", "medium", "high"]).nullable(),
-        }),
-      )
-      .max(50),
-    clarification: z.string().trim().min(1).max(300).nullable(),
-  })
-  .refine(
-    (result) =>
-      (result.tasks.length > 0) !== (result.clarification !== null),
-    { message: "Expected exactly one task or clarification outcome" },
-  );
 
 type ParseRequest = z.infer<typeof parseTaskRequestSchema>;
 type ParserClient = Pick<OpenAI, "responses">;
+
+class InvalidAIResponseError extends Error {
+  constructor(options?: ErrorOptions) {
+    super("INVALID_AI_RESPONSE", options);
+    this.name = "InvalidAIResponseError";
+  }
+}
+
+function normalizeAIResult(
+  output: z.infer<typeof aiWireResultSchema>,
+  inputMethod: InputMethod,
+): ParseResult {
+  const tasks = output.tasks
+    .flatMap((task) => {
+      const title = task.title.trim().slice(0, 300);
+      if (!title) {
+        return [];
+      }
+
+      return [
+        {
+          title,
+          scheduledDate:
+            task.scheduledDate && isCalendarDate(task.scheduledDate)
+              ? task.scheduledDate
+              : null,
+          scheduledTime:
+            task.scheduledTime && isLocalTime(task.scheduledTime)
+              ? task.scheduledTime
+              : null,
+          status: task.status,
+          priority: task.priority,
+          inputMethod,
+        },
+      ];
+    })
+    .slice(0, 50);
+
+  if (tasks.length > 0) {
+    return { tasks, clarification: null };
+  }
+
+  const clarification = output.clarification?.trim().slice(0, 300) || null;
+  if (clarification) {
+    return { tasks: [], clarification };
+  }
+
+  throw new InvalidAIResponseError();
+}
+
+function isRetryableStructuredOutputError(error: unknown) {
+  return (
+    error instanceof InvalidAIResponseError ||
+    error instanceof z.ZodError ||
+    error instanceof SyntaxError
+  );
+}
 
 export async function parseTasksWithClient(
   client: ParserClient,
   request: ParseRequest,
 ): Promise<ParseResult> {
-  const response = await client.responses.parse(
-    {
-      model: taskModel,
-      input: [
-        { role: "system", content: taskSystemPrompt },
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await client.responses.parse(
         {
-          role: "user",
-          content: `Локальна дата: ${request.today}\nЧасовий пояс: ${request.timeZone}\nНотатка: ${request.text}`,
+          model: taskModel,
+          input: [
+            { role: "system", content: taskSystemPrompt },
+            {
+              role: "user",
+              content:
+                `Локальна дата: ${request.today}\n` +
+                `Часовий пояс: ${request.timeZone}\n` +
+                `Нотатка: ${request.text}`,
+            },
+          ],
+          text: {
+            format: zodTextFormat(aiWireResultSchema, "noteai_task_result"),
+          },
         },
-      ],
-      text: { format: zodTextFormat(aiWireResultSchema, "noteai_task_result") },
-    },
-    { timeout: 15_000, maxRetries: 1 },
-  );
+        { timeout: 15_000, maxRetries: 1 },
+      );
 
-  if (!response.output_parsed) {
-    throw new Error("INVALID_AI_RESPONSE");
+      if (!response.output_parsed) {
+        throw new InvalidAIResponseError();
+      }
+
+      return normalizeAIResult(response.output_parsed, request.inputMethod);
+    } catch (error) {
+      if (!isRetryableStructuredOutputError(error)) {
+        throw error;
+      }
+
+      if (attempt === 1) {
+        throw error instanceof InvalidAIResponseError
+          ? error
+          : new InvalidAIResponseError({ cause: error });
+      }
+    }
   }
 
-  const parsed = aiResultSchema.safeParse(response.output_parsed);
-  if (!parsed.success) {
-    throw new Error("INVALID_AI_RESPONSE");
-  }
-
-  return {
-    clarification: parsed.data.clarification,
-    tasks: parsed.data.tasks.map((task) => ({
-      ...task,
-      inputMethod: request.inputMethod as InputMethod,
-    })),
-  };
+  throw new InvalidAIResponseError();
 }
 
 export async function parseTasksWithOpenAI(
