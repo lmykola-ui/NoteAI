@@ -35,7 +35,8 @@ describe("transcribeAudio", () => {
         file,
         model: "gpt-4o-mini-transcribe",
         response_format: "text",
-        prompt: "Українська нотатка про повсякденні справи, дати та час.",
+        language: "uk",
+        prompt: expect.stringMatching(/завайбкодити.*Vercel.*GitHub/s),
       },
       { timeout: 30_000, maxRetries: 1 },
     );
