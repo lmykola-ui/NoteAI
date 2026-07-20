@@ -2,6 +2,7 @@ import {
   parseTaskRequestSchema,
   parseTasksWithOpenAI,
 } from "@/server/openai/parseTasks";
+import { toOpenAIErrorDiagnostic } from "@/server/openai/errorDiagnostics";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -13,7 +14,8 @@ export async function POST(request: Request) {
 
   try {
     return Response.json(await parseTasksWithOpenAI(parsed.data));
-  } catch {
+  } catch (error) {
+    console.error(toOpenAIErrorDiagnostic(error));
     return Response.json({ code: "AI_UNAVAILABLE" }, { status: 502 });
   }
 }
