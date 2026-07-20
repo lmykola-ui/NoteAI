@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { isOverdue } from "@/features/tasks/domain/dateWindow";
 import type { Task, TaskPriority } from "@/features/tasks/domain/task";
+import { AppIcon } from "@/components/icons/AppIcon";
 
 type TaskCardProps = {
   task: Task;
@@ -20,11 +21,15 @@ type EditableTask = Pick<
 
 type TaskAction = (id: string) => void | Promise<void>;
 
-const priorityLabels: Record<NonNullable<TaskPriority>, string> = {
-  low: "Низький",
-  medium: "Середній",
-  high: "Високий",
-};
+function priorityPresentation(priority: TaskPriority | null) {
+  if (priority === "high") {
+    return { className: "priority-high", label: "Високий пріоритет" };
+  }
+  if (priority === "medium") {
+    return { className: "priority-medium", label: "Середній пріоритет" };
+  }
+  return { className: "priority-normal", label: "Звичайний пріоритет" };
+}
 
 function toEditableTask(task: Task): EditableTask {
   return {
@@ -53,6 +58,8 @@ export function TaskCard({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<EditableTask>(() => toEditableTask(task));
   const [mutationError, setMutationError] = useState<string | null>(null);
+  const priority = priorityPresentation(task.priority);
+  const priorityDescriptionId = `task-priority-${task.id}`;
 
   function startEditing() {
     setMutationError(null);
@@ -84,7 +91,14 @@ export function TaskCard({
 
   if (editing) {
     return (
-      <article aria-label={task.title} className="task-card">
+      <article
+        aria-label={task.title}
+        aria-describedby={priorityDescriptionId}
+        className={`task-card ${priority.className}`}
+      >
+        <span id={priorityDescriptionId} className="sr-only">
+          {priority.label}
+        </span>
         <form className="task-edit-form" onSubmit={saveChanges}>
           {mutationError ? (
             <p role="alert" className="capture-error">
@@ -162,17 +176,21 @@ export function TaskCard({
   }
 
   return (
-    <article aria-label={task.title} className="task-card">
+    <article
+      aria-label={task.title}
+      aria-describedby={priorityDescriptionId}
+      className={`task-card ${priority.className}`}
+    >
+      <span id={priorityDescriptionId} className="sr-only">
+        {priority.label}
+      </span>
       <div className="task-card-heading">
         <h2>{task.title}</h2>
         {task.status === "completed" ? <span>Виконано</span> : null}
       </div>
       <p className="task-meta">
-        {task.scheduledDate ? `Дата: ${formatDate(task.scheduledDate)}` : "Без дати"}
+        {task.scheduledDate ? formatDate(task.scheduledDate) : "Без дати"}
         {task.scheduledTime ? ` · ${task.scheduledTime}` : ""}
-      </p>
-      <p className="task-meta">
-        Пріоритет: {task.priority ? priorityLabels[task.priority] : "не вказано"}
       </p>
       {task.status === "active" && isOverdue(task.scheduledDate, today) ? (
         <p className="task-overdue">Прострочено</p>
@@ -183,32 +201,44 @@ export function TaskCard({
         </p>
       ) : null}
       <div className="task-card-actions">
-        <button type="button" className="secondary-button" onClick={startEditing}>
-          Редагувати задачу
+        <button
+          type="button"
+          className="task-icon-button"
+          aria-label="Редагувати задачу"
+          title="Редагувати"
+          onClick={startEditing}
+        >
+          <AppIcon name="edit" size={18} decorative />
         </button>
         {task.status === "active" ? (
           <button
             type="button"
-            className="secondary-button"
+            className="task-icon-button"
+            aria-label="Позначити виконаною"
+            title="Виконано"
             onClick={() => runTaskAction(onComplete)}
           >
-            Позначити виконаною
+            <AppIcon name="check" size={18} decorative />
           </button>
         ) : (
           <button
             type="button"
-            className="secondary-button"
+            className="task-icon-button"
+            aria-label="Відновити задачу"
+            title="Відновити"
             onClick={() => runTaskAction(onRestore)}
           >
-            Відновити задачу
+            <AppIcon name="retry" size={18} decorative />
           </button>
         )}
         <button
           type="button"
-          className="secondary-button"
+          className="task-icon-button task-delete-button"
+          aria-label="Видалити задачу"
+          title="Видалити"
           onClick={() => runTaskAction(onDelete)}
         >
-          Видалити задачу
+          <AppIcon name="trash" size={18} decorative />
         </button>
       </div>
     </article>

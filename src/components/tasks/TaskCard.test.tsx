@@ -4,6 +4,28 @@ import { vi } from "vitest";
 import { makeTask } from "../../../tests/fixtures/taskFactory";
 import { TaskCard } from "./TaskCard";
 
+it.each([
+  { priority: "high" as const, className: "priority-high", label: "Високий пріоритет" },
+  { priority: "medium" as const, className: "priority-medium", label: "Середній пріоритет" },
+  { priority: null, className: "priority-normal", label: "Звичайний пріоритет" },
+])("encodes $label with a rail and non-visual description", ({ priority, className, label }) => {
+  render(
+    <TaskCard
+      task={makeTask({ priority })}
+      today="2026-07-19"
+      onChange={vi.fn()}
+      onComplete={vi.fn()}
+      onRestore={vi.fn()}
+      onDelete={vi.fn()}
+    />,
+  );
+
+  const card = screen.getByRole("article", { name: "Купити молоко" });
+  expect(card).toHaveClass(className);
+  expect(card).toHaveAccessibleDescription(label);
+  expect(screen.queryByText(/Пріоритет:/)).not.toBeInTheDocument();
+});
+
 it("edits a task before saving the change", async () => {
   const user = userEvent.setup();
   const task = makeTask({ scheduledDate: "2026-07-19" });

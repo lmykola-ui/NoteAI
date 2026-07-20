@@ -2,9 +2,14 @@
   --bg: #0b0e0f;
   --surface: #171b1f;
   --surface-elevated: #1d2125;
+  --surface-raised: var(--surface-elevated);
+  --surface-hover: #272c31;
   --border: #30363c;
+  --border-strong: #4a5259;
   --text: #f2f3ef;
   --muted: #92989e;
+  --text-muted: var(--muted);
+  --text-subtle: #737a81;
   --action: #eef0ec;
   --danger: #ef6b65;
   --warning: #e6a650;
@@ -24,6 +29,7 @@
 }
 
 * { box-sizing: border-box; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 body { margin: 0; min-height: 100dvh; background: var(--bg); }
 button, textarea, input { font: inherit; }
 .mobile-shell { width: min(100%, 480px); min-height: 100dvh; margin: 0 auto; padding: 24px 20px 106px; }
@@ -78,13 +84,21 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-
 .task-screen { display: grid; gap: 16px; }
 .task-screen h1 { margin: 0; font-size: 2rem; }
 .task-list { display: grid; gap: 12px; }
-.task-card { display: grid; gap: 10px; padding: 16px; border-radius: var(--radius-card); background: var(--color-surface); }
+.task-card { position: relative; display: grid; gap: 10px; overflow: hidden; padding: 18px 18px 16px 22px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--color-surface); transition: border-color var(--motion-fast) ease, transform var(--motion-fast) ease; }
+.task-card::before { content: ""; position: absolute; top: 16px; bottom: 16px; left: 0; width: 4px; border-radius: 0 999px 999px 0; background: var(--priority-color); }
+.task-card:hover { border-color: var(--border-strong); }
+.priority-high { --priority-color: var(--danger); }
+.priority-medium { --priority-color: var(--warning); }
+.priority-normal { --priority-color: var(--info); }
 .task-card-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .task-card-heading h2 { margin: 0; font-size: 1.1rem; }
 .task-card-heading span, .task-overdue { color: #ffc0bd; }
 .task-meta, .empty-state { margin: 0; color: var(--color-muted); }
 .task-overdue { margin: 0; font-weight: 700; }
 .task-card-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.task-icon-button { display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid var(--border); border-radius: 13px; color: var(--muted); background: transparent; cursor: pointer; transition: color var(--motion-fast) ease, border-color var(--motion-fast) ease, background var(--motion-fast) ease; }
+.task-icon-button:hover { border-color: var(--border-strong); color: var(--text); background: var(--surface-hover); }
+.task-delete-button:hover { color: var(--danger); }
 .task-edit-form { display: grid; gap: 12px; }
 .task-edit-form label { display: grid; gap: 6px; color: var(--color-muted); }
 .task-edit-form input, .task-edit-form select { width: 100%; border: 1px solid #3b4352; border-radius: 12px; padding: 10px; color: var(--color-text); background: var(--color-bg); }
