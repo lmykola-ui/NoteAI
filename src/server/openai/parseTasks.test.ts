@@ -1,13 +1,22 @@
 import { describe, expect, it, vi } from "vitest";
-import { z } from "zod";
 import { ukrainianParserContractCases } from "../../../tests/fixtures/ukrainian-cases";
 import { parseTasksWithClient } from "./parseTasks";
+
+const usageMocks = vi.hoisted(() => ({
+  emit: vi.fn(),
+}));
 
 vi.mock("server-only", () => ({}));
 vi.mock("./client", () => ({
   createOpenAIClient: vi.fn(),
-  taskModel: "gpt-5.6-terra",
+  taskModel: "gpt-5-nano",
 }));
+vi.mock("./usageDiagnostics", async (importOriginal) => {
+  const original = await importOriginal<
+    typeof import("./usageDiagnostics")
+  >();
+  return { ...original, emitOpenAIUsage: usageMocks.emit };
+});
 
 describe("parseTasksWithClient", () => {
   it("keeps the mocked Ukrainian parser contract at ten cases", () => {
@@ -42,6 +51,15 @@ describe("parseTasksWithClient", () => {
           content: `Локальна дата: ${today}\nЧасовий пояс: Europe/Warsaw\nНотатка: ${input}`,
         },
       ]);
+      expect(request).toMatchObject({
+        model: "gpt-5-nano",
+        max_output_tokens: 1_200,
+        reasoning: { effort: "minimal" },
+      });
+      expect(parse.mock.calls[0]?.[1]).toEqual({
+        timeout: 15_000,
+        maxRetries: 1,
+      });
     },
   );
 
@@ -130,7 +148,7 @@ describe("parseTasksWithClient", () => {
         inputMethod: "text",
       }),
     ).rejects.toThrow("INVALID_AI_RESPONSE");
-    expect(parse).toHaveBeenCalledTimes(2);
+    expect(parse).toHaveBeenCalledOnce();
   });
 
   it("trims a bounded non-blank clarification outcome", async () => {
@@ -160,7 +178,7 @@ describe("parseTasksWithClient", () => {
   it.each([
     ["a blank clarification", { tasks: [], clarification: "   " }],
     ["neither tasks nor a clarification", { tasks: [], clarification: null }],
-  ])("fails closed after two attempts for %s", async (_case, outputParsed) => {
+  ])("fails closed without retrying for %s", async (_case, outputParsed) => {
     const parse = vi.fn().mockResolvedValue({ output_parsed: outputParsed });
     const client = {
       responses: { parse },
@@ -174,7 +192,7 @@ describe("parseTasksWithClient", () => {
         inputMethod: "text",
       }),
     ).rejects.toThrow("INVALID_AI_RESPONSE");
-    expect(parse).toHaveBeenCalledTimes(2);
+    expect(parse).toHaveBeenCalledOnce();
   });
 
   it("bounds a clarification to 300 characters", async () => {
@@ -284,7 +302,7 @@ describe("parseTasksWithClient", () => {
     });
   });
 
-  it("discards blank tasks and fails after two attempts", async () => {
+  it("discards blank tasks without retrying", async () => {
     const parse = vi.fn().mockResolvedValue({
       output_parsed: {
         tasks: [
@@ -311,125 +329,33 @@ describe("parseTasksWithClient", () => {
         inputMethod: "text",
       }),
     ).rejects.toThrow("INVALID_AI_RESPONSE");
-    expect(parse).toHaveBeenCalledTimes(2);
+    expect(parse).toHaveBeenCalledOnce();
   });
 
-  it("retries once after an SDK structured-output parse failure", async () => {
-    const schemaFailure = (() => {
-      try {
-        z.string().parse(123);
-      } catch (error) {
-        return error;
-      }
-    })();
-    const parse = vi
-      .fn()
-      .mockRejectedValueOnce(schemaFailure)
-      .mockResolvedValueOnce({
-        output_parsed: {
-          tasks: [
-            {
-              title: "Купити молоко",
-              scheduledDate: null,
-              scheduledTime: null,
-              status: "active",
-              priority: null,
-            },
-          ],
-          clarification: null,
-        },
-      });
-    const client = {
-      responses: { parse },
-    } as unknown as Parameters<typeof parseTasksWithClient>[0];
+  it.each([
+    ["Zod", class ZodError extends Error {}],
+    ["OpenAI parser", class OpenAIError extends Error {}],
+    ["length finish", class LengthFinishReasonError extends Error {}],
+  ])(
+    "does not buy a second analysis after a local %s error",
+    async (_case, ErrorType) => {
+      const failure = new ErrorType("private model output");
+      const parse = vi.fn().mockRejectedValue(failure);
+      const client = {
+        responses: { parse },
+      } as unknown as Parameters<typeof parseTasksWithClient>[0];
 
-    await expect(
-      parseTasksWithClient(client, {
-        text: "Купити молоко",
-        today: "2026-07-19",
-        timeZone: "Europe/Warsaw",
-        inputMethod: "text",
-      }),
-    ).resolves.toMatchObject({
-      tasks: [expect.objectContaining({ title: "Купити молоко" })],
-      clarification: null,
-    });
-    expect(parse).toHaveBeenCalledTimes(2);
-  });
-
-  it("retries a bundled ZodError from a different module instance", async () => {
-    const ForeignZodError = class ZodError extends Error {};
-    const parse = vi
-      .fn()
-      .mockRejectedValueOnce(new ForeignZodError("private model output"))
-      .mockResolvedValueOnce({
-        output_parsed: {
-          tasks: [
-            {
-              title: "Купити молоко",
-              scheduledDate: null,
-              scheduledTime: null,
-              status: "active",
-              priority: null,
-            },
-          ],
-          clarification: null,
-        },
-      });
-    const client = {
-      responses: { parse },
-    } as unknown as Parameters<typeof parseTasksWithClient>[0];
-
-    await expect(
-      parseTasksWithClient(client, {
-        text: "Купити молоко",
-        today: "2026-07-19",
-        timeZone: "Europe/Warsaw",
-        inputMethod: "text",
-      }),
-    ).resolves.toMatchObject({
-      tasks: [expect.objectContaining({ title: "Купити молоко" })],
-      clarification: null,
-    });
-    expect(parse).toHaveBeenCalledTimes(2);
-  });
-
-  it("retries a local OpenAI parser error without an API status", async () => {
-    const ForeignOpenAIError = class OpenAIError extends Error {};
-    const parse = vi
-      .fn()
-      .mockRejectedValueOnce(new ForeignOpenAIError("private model output"))
-      .mockResolvedValueOnce({
-        output_parsed: {
-          tasks: [
-            {
-              title: "Купити молоко",
-              scheduledDate: null,
-              scheduledTime: null,
-              status: "active",
-              priority: null,
-            },
-          ],
-          clarification: null,
-        },
-      });
-    const client = {
-      responses: { parse },
-    } as unknown as Parameters<typeof parseTasksWithClient>[0];
-
-    await expect(
-      parseTasksWithClient(client, {
-        text: "Купити молоко",
-        today: "2026-07-19",
-        timeZone: "Europe/Warsaw",
-        inputMethod: "text",
-      }),
-    ).resolves.toMatchObject({
-      tasks: [expect.objectContaining({ title: "Купити молоко" })],
-      clarification: null,
-    });
-    expect(parse).toHaveBeenCalledTimes(2);
-  });
+      await expect(
+        parseTasksWithClient(client, {
+          text: "Купити молоко",
+          today: "2026-07-19",
+          timeZone: "Europe/Warsaw",
+          inputMethod: "text",
+        }),
+      ).rejects.toBe(failure);
+      expect(parse).toHaveBeenCalledOnce();
+    },
+  );
 
   it("does not retry a provider API error", async () => {
     class RateLimitError extends Error {
@@ -454,7 +380,7 @@ describe("parseTasksWithClient", () => {
     expect(parse).toHaveBeenCalledOnce();
   });
 
-  it("fails after two unusable structured responses", async () => {
+  it("fails after one unusable structured response", async () => {
     const parse = vi.fn().mockResolvedValue({
       output_parsed: { tasks: [], clarification: null },
     });
@@ -470,6 +396,63 @@ describe("parseTasksWithClient", () => {
         inputMethod: "text",
       }),
     ).rejects.toThrow("INVALID_AI_RESPONSE");
-    expect(parse).toHaveBeenCalledTimes(2);
+    expect(parse).toHaveBeenCalledOnce();
+  });
+
+  it("emits only normalized usage for a provider response", async () => {
+    usageMocks.emit.mockReset();
+    const parse = vi.fn().mockResolvedValue({
+      _request_id: "req_parse_123",
+      usage: {
+        input_tokens: 100,
+        input_tokens_details: { cached_tokens: 10 },
+        output_tokens: 20,
+        output_tokens_details: { reasoning_tokens: 5 },
+        total_tokens: 120,
+        privateNote: "Купити молоко",
+      },
+      output_parsed: {
+        tasks: [
+          {
+            title: "Купити молоко",
+            scheduledDate: null,
+            scheduledTime: null,
+            status: "active",
+            priority: null,
+          },
+        ],
+        clarification: null,
+      },
+    });
+    const client = {
+      responses: { parse },
+    } as unknown as Parameters<typeof parseTasksWithClient>[0];
+
+    await parseTasksWithClient(client, {
+      text: "Купити молоко",
+      today: "2026-07-19",
+      timeZone: "Europe/Warsaw",
+      inputMethod: "text",
+    });
+
+    expect(usageMocks.emit).toHaveBeenCalledWith({
+      event: "openai_usage",
+      operation: "parse",
+      outcome: "provider_response",
+      model: "gpt-5-nano",
+      requestId: "req_parse_123",
+      inputTokens: 100,
+      cachedInputTokens: 10,
+      outputTokens: 20,
+      reasoningTokens: 5,
+      totalTokens: 120,
+      audioDurationSeconds: null,
+      estimatedCostUsdMicros: 13,
+      pricingSnapshot: "2026-07-20",
+      retryPolicy: "sdk_max_1",
+    });
+    expect(JSON.stringify(usageMocks.emit.mock.calls)).not.toContain(
+      "Купити молоко",
+    );
   });
 });
