@@ -120,10 +120,26 @@ function normalizeAIResult(
 }
 
 function isRetryableStructuredOutputError(error: unknown) {
+  let constructorName: string | null = null;
+  if (typeof error === "object" && error !== null) {
+    try {
+      const constructor = Reflect.get(error, "constructor");
+      constructorName =
+        typeof constructor === "function" &&
+        typeof constructor.name === "string"
+          ? constructor.name
+          : null;
+    } catch {
+      constructorName = null;
+    }
+  }
+
   return (
     error instanceof InvalidAIResponseError ||
     error instanceof z.ZodError ||
-    error instanceof SyntaxError
+    error instanceof SyntaxError ||
+    constructorName === "ZodError" ||
+    constructorName === "SyntaxError"
   );
 }
 

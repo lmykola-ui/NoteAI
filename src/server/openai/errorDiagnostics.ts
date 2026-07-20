@@ -33,6 +33,10 @@ const errorTypes = {
   APIConnectionTimeoutError: "timeout",
   APIError: "api_error",
   InternalServerError: "api_error",
+  ZodError: "invalid_ai_response",
+  SyntaxError: "invalid_ai_response",
+  LengthFinishReasonError: "invalid_ai_response",
+  ContentFilterFinishReasonError: "invalid_ai_response",
 } as const;
 
 function asRecord(value: unknown): Record<string, unknown> | null {

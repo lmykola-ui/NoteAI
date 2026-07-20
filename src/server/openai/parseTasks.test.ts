@@ -357,6 +357,43 @@ describe("parseTasksWithClient", () => {
     expect(parse).toHaveBeenCalledTimes(2);
   });
 
+  it("retries a bundled ZodError from a different module instance", async () => {
+    const ForeignZodError = class ZodError extends Error {};
+    const parse = vi
+      .fn()
+      .mockRejectedValueOnce(new ForeignZodError("private model output"))
+      .mockResolvedValueOnce({
+        output_parsed: {
+          tasks: [
+            {
+              title: "Купити молоко",
+              scheduledDate: null,
+              scheduledTime: null,
+              status: "active",
+              priority: null,
+            },
+          ],
+          clarification: null,
+        },
+      });
+    const client = {
+      responses: { parse },
+    } as unknown as Parameters<typeof parseTasksWithClient>[0];
+
+    await expect(
+      parseTasksWithClient(client, {
+        text: "Купити молоко",
+        today: "2026-07-19",
+        timeZone: "Europe/Warsaw",
+        inputMethod: "text",
+      }),
+    ).resolves.toMatchObject({
+      tasks: [expect.objectContaining({ title: "Купити молоко" })],
+      clarification: null,
+    });
+    expect(parse).toHaveBeenCalledTimes(2);
+  });
+
   it("does not retry a provider API error", async () => {
     class RateLimitError extends Error {
       status = 429;
