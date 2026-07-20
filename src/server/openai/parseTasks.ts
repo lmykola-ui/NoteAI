@@ -8,6 +8,10 @@ import type {
 } from "@/features/tasks/domain/task";
 import { createOpenAIClient, taskModel } from "./client";
 import { taskSystemPrompt } from "./taskPrompt.mjs";
+import {
+  emitOpenAIUsage,
+  toOpenAIUsageDiagnostic,
+} from "./usageDiagnostics";
 
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 const localTimePattern = /^\d{2}:\d{2}$/;
@@ -119,78 +123,46 @@ function normalizeAIResult(
   throw new InvalidAIResponseError();
 }
 
-function isRetryableStructuredOutputError(error: unknown) {
-  let constructorName: string | null = null;
-  if (typeof error === "object" && error !== null) {
-    try {
-      const constructor = Reflect.get(error, "constructor");
-      constructorName =
-        typeof constructor === "function" &&
-        typeof constructor.name === "string"
-          ? constructor.name
-          : null;
-    } catch {
-      constructorName = null;
-    }
-  }
-
-  return (
-    error instanceof InvalidAIResponseError ||
-    error instanceof z.ZodError ||
-    error instanceof SyntaxError ||
-    constructorName === "ZodError" ||
-    constructorName === "SyntaxError" ||
-    constructorName === "OpenAIError" ||
-    constructorName === "LengthFinishReasonError" ||
-    constructorName === "ContentFilterFinishReasonError"
-  );
-}
-
 export async function parseTasksWithClient(
   client: ParserClient,
   request: ParseRequest,
 ): Promise<ParseResult> {
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    try {
-      const response = await client.responses.parse(
+  const response = await client.responses.parse(
+    {
+      model: taskModel,
+      input: [
+        { role: "system", content: taskSystemPrompt },
         {
-          model: taskModel,
-          input: [
-            { role: "system", content: taskSystemPrompt },
-            {
-              role: "user",
-              content:
-                `Локальна дата: ${request.today}\n` +
-                `Часовий пояс: ${request.timeZone}\n` +
-                `Нотатка: ${request.text}`,
-            },
-          ],
-          text: {
-            format: zodTextFormat(aiWireResultSchema, "noteai_task_result"),
-          },
+          role: "user",
+          content:
+            `Локальна дата: ${request.today}\n` +
+            `Часовий пояс: ${request.timeZone}\n` +
+            `Нотатка: ${request.text}`,
         },
-        { timeout: 15_000, maxRetries: 1 },
-      );
+      ],
+      reasoning: { effort: "minimal" },
+      max_output_tokens: 1_200,
+      text: {
+        format: zodTextFormat(aiWireResultSchema, "noteai_task_result"),
+      },
+    },
+    { timeout: 15_000, maxRetries: 1 },
+  );
 
-      if (!response.output_parsed) {
-        throw new InvalidAIResponseError();
-      }
+  emitOpenAIUsage(
+    toOpenAIUsageDiagnostic({
+      operation: "parse",
+      model: taskModel,
+      requestId: response._request_id,
+      usage: response.usage,
+    }),
+  );
 
-      return normalizeAIResult(response.output_parsed, request.inputMethod);
-    } catch (error) {
-      if (!isRetryableStructuredOutputError(error)) {
-        throw error;
-      }
-
-      if (attempt === 1) {
-        throw error instanceof InvalidAIResponseError
-          ? error
-          : new InvalidAIResponseError({ cause: error });
-      }
-    }
+  if (!response.output_parsed) {
+    throw new InvalidAIResponseError();
   }
 
-  throw new InvalidAIResponseError();
+  return normalizeAIResult(response.output_parsed, request.inputMethod);
 }
 
 export async function parseTasksWithOpenAI(

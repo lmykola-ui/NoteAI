@@ -65,7 +65,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    return Response.json({ text: await transcribeAudio(audio) });
+    return Response.json({ text: await transcribeAudio(audio, duration) });
   } catch {
     return Response.json(
       { code: "TRANSCRIPTION_UNAVAILABLE" },
