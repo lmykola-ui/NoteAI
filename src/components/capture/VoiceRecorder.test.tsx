@@ -253,6 +253,31 @@ it("closes a failed audio context before enabling the fallback", async () => {
   expect(close).toHaveBeenCalledOnce();
 });
 
+it("keeps recording with the fallback when the Web Audio graph cannot start", async () => {
+  microphone();
+  const close = vi.fn().mockResolvedValue(undefined);
+  const AudioContextMock = vi.fn(function MockAudioContext() {
+    return {
+      state: "running",
+      close,
+      createAnalyser: vi.fn(() => {
+        throw new Error("analyser unavailable");
+      }),
+      createMediaStreamSource: vi.fn(),
+    };
+  });
+  vi.stubGlobal("AudioContext", AudioContextMock);
+
+  render(<VoiceRecorder onTranscript={vi.fn()} />);
+  await userEvent.click(screen.getByRole("button", { name: "Почати запис" }));
+
+  expect(screen.getByRole("button", { name: "Зупинити запис" })).toBeEnabled();
+  expect(screen.getByTestId("audio-waveform")).toHaveClass(
+    "is-fallback-active",
+  );
+  expect(close).toHaveBeenCalledOnce();
+});
+
 it("transcribes one combined recording and cleans up every media track", async () => {
   const firstTrack = { stop: vi.fn() } as unknown as MediaStreamTrack;
   const secondTrack = { stop: vi.fn() } as unknown as MediaStreamTrack;

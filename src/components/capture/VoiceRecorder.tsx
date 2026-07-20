@@ -225,8 +225,32 @@ export function VoiceRecorder({
       return;
     }
 
-    const audioContext = new AudioContextClass();
+    const enableFallback = () => {
+      if (
+        mountedRef.current &&
+        activeSessionRef.current === session &&
+        !session.discard
+      ) {
+        setLevels(QUIET_LEVELS);
+        setVisualizerMode("fallback");
+      }
+    };
+
+    let audioContext: AudioContext;
+    try {
+      audioContext = new AudioContextClass();
+    } catch {
+      enableFallback();
+      return;
+    }
     session.audioContext = audioContext;
+
+    const failAudioAnalysis = () => {
+      if (session.audioContext === audioContext) {
+        stopAudioAnalysis(session);
+      }
+      enableFallback();
+    };
 
     const beginSampling = () => {
       if (
@@ -238,13 +262,20 @@ export function VoiceRecorder({
         return;
       }
 
-      const analyser = audioContext.createAnalyser();
-      const source = audioContext.createMediaStreamSource(stream);
-      analyser.fftSize = 64;
-      analyser.smoothingTimeConstant = 0.72;
-      source.connect(analyser);
-      session.audioSource = source;
-      session.analyser = analyser;
+      let analyser: AnalyserNode;
+      let source: MediaStreamAudioSourceNode;
+      try {
+        analyser = audioContext.createAnalyser();
+        source = audioContext.createMediaStreamSource(stream);
+        session.audioSource = source;
+        session.analyser = analyser;
+        analyser.fftSize = 64;
+        analyser.smoothingTimeConstant = 0.72;
+        source.connect(analyser);
+      } catch {
+        failAudioAnalysis();
+        return;
+      }
       setVisualizerMode("live");
 
       const samples = new Uint8Array(analyser.fftSize);
@@ -265,22 +296,13 @@ export function VoiceRecorder({
       session.animationFrame = requestAnimationFrame(sampleLevels);
     };
 
-    if (audioContext.state === "suspended") {
-      void audioContext.resume().then(beginSampling).catch(() => {
-        if (session.audioContext !== audioContext) return;
-        session.audioContext = null;
-        if (audioContext.state !== "closed") {
-          void audioContext.close().catch(() => undefined);
-        }
-        if (
-          mountedRef.current &&
-          activeSessionRef.current === session &&
-          !session.discard
-        ) {
-          setLevels(QUIET_LEVELS);
-          setVisualizerMode("fallback");
-        }
-      });
+    try {
+      if (audioContext.state === "suspended") {
+        void audioContext.resume().then(beginSampling).catch(failAudioAnalysis);
+        return;
+      }
+    } catch {
+      failAudioAnalysis();
       return;
     }
 
