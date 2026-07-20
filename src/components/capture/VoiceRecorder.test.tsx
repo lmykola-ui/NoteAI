@@ -102,6 +102,24 @@ it("reports denied microphone permission without disabling text capture", async 
   expect(screen.getByRole("button", { name: "Спробувати ще раз" })).toBeEnabled();
 });
 
+it("shows the waveform only while recording", async () => {
+  microphone();
+  transcriptionMocks.request.mockResolvedValue("Купити молоко");
+  render(<VoiceRecorder onTranscript={vi.fn()} />);
+
+  expect(screen.queryByTestId("audio-waveform")).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Почати запис" }));
+  expect(screen.getByTestId("audio-waveform")).toBeVisible();
+
+  MockMediaRecorder.instances[0].emitChunk(
+    new Blob(["voice"], { type: "audio/webm" }),
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: "Зупинити запис" }),
+  );
+  expect(screen.queryByTestId("audio-waveform")).not.toBeInTheDocument();
+});
+
 it("transcribes one combined recording and cleans up every media track", async () => {
   const firstTrack = { stop: vi.fn() } as unknown as MediaStreamTrack;
   const secondTrack = { stop: vi.fn() } as unknown as MediaStreamTrack;

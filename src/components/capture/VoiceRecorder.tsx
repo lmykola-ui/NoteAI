@@ -8,6 +8,7 @@ import {
   isOnlineNow,
   subscribeToOnlineStatus,
 } from "@/lib/connectivity";
+import { AudioWaveform } from "./AudioWaveform";
 
 type RecorderState =
   | "idle"
@@ -24,6 +25,8 @@ type VoiceRecorderProps = {
 
 const SERVER_AUDIO_DURATION_CAP_MS = 60_000;
 const AUTO_STOP_RECORDING_MS = SERVER_AUDIO_DURATION_CAP_MS - 1_000;
+const WAVEFORM_BAR_COUNT = 13;
+const QUIET_LEVELS = Array.from({ length: WAVEFORM_BAR_COUNT }, () => 0.08);
 // Keep one second of headroom because browser timers can run late while the
 // server verifies the recorded duration against its strict 60-second cap.
 
@@ -36,6 +39,10 @@ type RecordingSession = {
   discard: boolean;
   finished: boolean;
   failed: boolean;
+  audioContext: AudioContext | null;
+  audioSource: MediaStreamAudioSourceNode | null;
+  analyser: AnalyserNode | null;
+  animationFrame: number | null;
 };
 
 function clearStopTimer(session: RecordingSession) {
@@ -49,6 +56,22 @@ function stopTracks(session: RecordingSession) {
   const stream = session.stream;
   session.stream = null;
   stream?.getTracks().forEach((track) => track.stop());
+}
+
+function stopAudioAnalysis(session: RecordingSession) {
+  if (session.animationFrame !== null) {
+    cancelAnimationFrame(session.animationFrame);
+    session.animationFrame = null;
+  }
+  session.audioSource?.disconnect();
+  session.analyser?.disconnect();
+  session.audioSource = null;
+  session.analyser = null;
+  const audioContext = session.audioContext;
+  session.audioContext = null;
+  if (audioContext && audioContext.state !== "closed") {
+    void audioContext.close().catch(() => undefined);
+  }
 }
 
 function isPermissionDenied(error: unknown) {
@@ -66,6 +89,7 @@ export function VoiceRecorder({
   disabled = false,
 }: VoiceRecorderProps) {
   const [state, setState] = useState<RecorderState>("idle");
+  const [levels, setLevels] = useState(QUIET_LEVELS);
   const mountedRef = useRef(true);
   const generationRef = useRef(0);
   const activeSessionRef = useRef<RecordingSession | null>(null);
@@ -75,6 +99,7 @@ export function VoiceRecorder({
     session.discard = true;
     clearStopTimer(session);
     session.chunks = [];
+    stopAudioAnalysis(session);
     stopTracks(session);
     if (activeSessionRef.current === session) activeSessionRef.current = null;
     const recorder = session.recorder;
@@ -97,6 +122,7 @@ export function VoiceRecorder({
     if (session.finished) return;
     session.finished = true;
     clearStopTimer(session);
+    stopAudioAnalysis(session);
     stopTracks(session);
     if (activeSessionRef.current === session) activeSessionRef.current = null;
 
@@ -148,6 +174,56 @@ export function VoiceRecorder({
     }
   }
 
+  function startAudioAnalysis(
+    session: RecordingSession,
+    stream: MediaStream,
+    recorder: MediaRecorder,
+  ) {
+    const AudioContextClass = window.AudioContext;
+    if (!AudioContextClass) {
+      setLevels(QUIET_LEVELS);
+      return;
+    }
+
+    const audioContext = new AudioContextClass();
+    const analyser = audioContext.createAnalyser();
+    const source = audioContext.createMediaStreamSource(stream);
+    analyser.fftSize = 64;
+    analyser.smoothingTimeConstant = 0.72;
+    source.connect(analyser);
+    session.audioContext = audioContext;
+    session.audioSource = source;
+    session.analyser = analyser;
+
+    const samples = new Uint8Array(analyser.fftSize);
+    const sampleLevels = () => {
+      if (
+        !mountedRef.current ||
+        activeSessionRef.current !== session ||
+        session.discard ||
+        recorder.state !== "recording"
+      ) {
+        return;
+      }
+
+      analyser.getByteTimeDomainData(samples);
+      const sum = samples.reduce((total, sample) => {
+        const centered = (sample - 128) / 128;
+        return total + centered * centered;
+      }, 0);
+      const amplitude = Math.min(1, Math.sqrt(sum / samples.length) * 4.5);
+      setLevels((current) =>
+        current.map((previous, index) => {
+          const centerWeight = 1 - Math.abs(index - 6) / 9;
+          const target = Math.max(0.06, amplitude * centerWeight);
+          return previous * 0.68 + target * 0.32;
+        }),
+      );
+      session.animationFrame = requestAnimationFrame(sampleLevels);
+    };
+    session.animationFrame = requestAnimationFrame(sampleLevels);
+  }
+
   async function startRecording() {
     if (disabled || !isOnlineNow()) return;
     setState("requesting");
@@ -160,6 +236,10 @@ export function VoiceRecorder({
       discard: false,
       finished: false,
       failed: false,
+      audioContext: null,
+      audioSource: null,
+      analyser: null,
+      animationFrame: null,
     };
     generationRef.current = session.generation;
     activeSessionRef.current = session;
@@ -197,6 +277,7 @@ export function VoiceRecorder({
       }
       const recorder = new MediaRecorder(stream);
       session.recorder = recorder;
+      startAudioAnalysis(session, stream, recorder);
 
       recorder.ondataavailable = (event) => {
         if (!session.discard && !session.finished && event.data.size > 0) {
@@ -210,6 +291,7 @@ export function VoiceRecorder({
         session.discard = true;
         session.failed = true;
         clearStopTimer(session);
+        stopAudioAnalysis(session);
         stopTracks(session);
         session.chunks = [];
         if (mountedRef.current && activeSessionRef.current === session) {
@@ -233,6 +315,7 @@ export function VoiceRecorder({
     } catch (error) {
       session.discard = true;
       clearStopTimer(session);
+      stopAudioAnalysis(session);
       stopTracks(session);
       session.chunks = [];
       session.recorder = null;
@@ -268,6 +351,7 @@ export function VoiceRecorder({
       if (!session) return;
       session.discard = true;
       clearStopTimer(session);
+      stopAudioAnalysis(session);
       const recorder = session.recorder;
       session.recorder = null;
       if (recorder) {
@@ -283,9 +367,23 @@ export function VoiceRecorder({
 
   if (state === "recording") {
     return (
-      <button type="button" className="secondary-button" onClick={stopRecording}>
-        Зупинити запис
-      </button>
+      <div className="recording-card capture-state-enter" role="status">
+        <div className="recording-heading">
+          <span>
+            <i aria-hidden="true" />
+            Запис
+          </span>
+        </div>
+        <AudioWaveform levels={levels} />
+        <button
+          type="button"
+          className="record-stop-button"
+          aria-label="Зупинити запис"
+          onClick={stopRecording}
+        >
+          Зупинити
+        </button>
+      </div>
     );
   }
 
