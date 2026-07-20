@@ -90,7 +90,7 @@ it("opens Capture and exposes exactly three icon-only destinations", async () =>
   );
 
   await user.click(screen.getByRole("button", { name: "Задачі" }));
-  expect(screen.getByRole("heading", { name: "План" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "Сьогодні" })).toBeVisible();
   expect(screen.getByRole("button", { name: "Задачі" })).toHaveAttribute(
     "aria-current",
     "page",

@@ -17,7 +17,7 @@ const actions = {
   onDelete: vi.fn(),
 };
 
-it("shows exactly today plus six days and only the selected day tasks", async () => {
+it("opens on today and exposes the week from the top-right period menu", async () => {
   const user = userEvent.setup();
 
   render(
@@ -28,13 +28,17 @@ it("shows exactly today plus six days and only the selected day tasks", async ()
     />,
   );
 
-  expect(screen.getAllByRole("button", { name: /Обрати/ })).toHaveLength(7);
+  expect(screen.getByRole("heading", { name: "Сьогодні" })).toBeVisible();
   expect(screen.getByText(todayTask.title)).toBeVisible();
   expect(screen.queryByText(tomorrowTask.title)).not.toBeInTheDocument();
 
-  await user.click(screen.getByRole("button", { name: /Обрати 20 липня/ }));
+  await user.click(screen.getByRole("button", { name: "Змінити період" }));
+  await user.click(screen.getByRole("menuitemradio", { name: "Тиждень" }));
+
+  expect(screen.getByRole("heading", { name: "Тиждень" })).toBeVisible();
+  expect(screen.getAllByRole("group", { name: /День/ })).toHaveLength(7);
+  expect(screen.getByText(todayTask.title)).toBeVisible();
   expect(screen.getByText(tomorrowTask.title)).toBeVisible();
-  expect(screen.queryByText(todayTask.title)).not.toBeInTheDocument();
 });
 
 it("orders timed Plan tasks before untimed tasks by creation time", () => {
@@ -85,7 +89,7 @@ it("orders timed Plan tasks before untimed tasks by creation time", () => {
   expect(titles).toEqual(["Раніше", "Пізніше", "Без часу"]);
 });
 
-it("moves an expired selection to today when the seven-day window rolls", () => {
+it("keeps today mode aligned when the date rolls", () => {
   const newTodayTask = makeTask({
     id: "new-today",
     title: "Нова сьогоднішня задача",
@@ -99,10 +103,7 @@ it("moves an expired selection to today when the seven-day window rolls", () => 
     <PlanScreen tasks={[todayTask, newTodayTask]} today="2026-07-20" {...actions} />,
   );
 
-  expect(screen.getByRole("button", { name: /Обрати 20 липня/ })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  expect(screen.getByRole("heading", { name: "Сьогодні" })).toBeVisible();
   expect(screen.getByText("Нова сьогоднішня задача")).toBeVisible();
   expect(screen.queryByText(todayTask.title)).not.toBeInTheDocument();
 });
