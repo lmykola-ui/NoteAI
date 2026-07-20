@@ -163,7 +163,7 @@ describe("POST /api/parse-note", () => {
     });
   });
 
-  it("rejects a mixed tasks-and-clarification provider outcome", async () => {
+  it("keeps tasks from a mixed tasks-and-clarification provider outcome", async () => {
     openAIMocks.parse.mockResolvedValue({
       output_parsed: {
         tasks: [
@@ -181,7 +181,19 @@ describe("POST /api/parse-note", () => {
     const POST = await loadPost();
     const response = await POST(requestWithBody(JSON.stringify(validBody)));
 
-    expect(response.status).toBe(502);
-    await expect(response.json()).resolves.toEqual({ code: "AI_UNAVAILABLE" });
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      tasks: [
+        {
+          title: "Запланувати зустріч",
+          scheduledDate: null,
+          scheduledTime: null,
+          status: "active",
+          priority: null,
+          inputMethod: "text",
+        },
+      ],
+      clarification: null,
+    });
   });
 });

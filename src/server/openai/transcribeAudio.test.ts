@@ -36,7 +36,7 @@ describe("transcribeAudio", () => {
         model: "gpt-4o-mini-transcribe",
         response_format: "text",
         language: "uk",
-        prompt: expect.stringMatching(/завайбкодити.*Vercel.*GitHub/s),
+        prompt: expect.stringMatching(/завайбкодити.*Vercel.*GitHub/),
       },
       { timeout: 30_000, maxRetries: 1 },
     );

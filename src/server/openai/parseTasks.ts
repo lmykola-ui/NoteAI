@@ -45,7 +45,6 @@ function isIanaTimeZone(value: string) {
 }
 
 const calendarDateSchema = z.string().refine(isCalendarDate);
-const localTimeSchema = z.string().refine(isLocalTime);
 
 export const parseTaskRequestSchema = z.object({
   text: z.string().trim().min(1).max(10_000),
