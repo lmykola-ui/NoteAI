@@ -40,6 +40,8 @@ type RecordingSession = {
   stream: MediaStream | null;
   chunks: Blob[];
   stopTimer: ReturnType<typeof setTimeout> | null;
+  elapsedTimer: ReturnType<typeof setInterval> | null;
+  startedAt: number | null;
   discard: boolean;
   finished: boolean;
   failed: boolean;
@@ -54,6 +56,20 @@ function clearStopTimer(session: RecordingSession) {
     clearTimeout(session.stopTimer);
     session.stopTimer = null;
   }
+}
+
+function clearElapsedTimer(session: RecordingSession) {
+  if (session.elapsedTimer !== null) {
+    clearInterval(session.elapsedTimer);
+    session.elapsedTimer = null;
+  }
+  session.startedAt = null;
+}
+
+function formatElapsedTime(totalSeconds: number) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 function stopTracks(session: RecordingSession) {
@@ -94,6 +110,7 @@ export function VoiceRecorder({
 }: VoiceRecorderProps) {
   const [state, setState] = useState<RecorderState>("idle");
   const [levels, setLevels] = useState(QUIET_LEVELS);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [visualizerMode, setVisualizerMode] =
     useState<VisualizerMode>("static");
   const mountedRef = useRef(true);
@@ -104,6 +121,7 @@ export function VoiceRecorder({
   const discardSession = useCallback((session: RecordingSession) => {
     session.discard = true;
     clearStopTimer(session);
+    clearElapsedTimer(session);
     session.chunks = [];
     stopAudioAnalysis(session);
     stopTracks(session);
@@ -112,6 +130,7 @@ export function VoiceRecorder({
     if (recorder && recorder.state !== "inactive") recorder.stop();
     if (mountedRef.current && generationRef.current === session.generation) {
       setLevels(QUIET_LEVELS);
+      setElapsedSeconds(0);
       setVisualizerMode("static");
       setState("idle");
     }
@@ -130,10 +149,12 @@ export function VoiceRecorder({
     if (session.finished) return;
     session.finished = true;
     clearStopTimer(session);
+    clearElapsedTimer(session);
     stopAudioAnalysis(session);
     stopTracks(session);
     if (mountedRef.current && generationRef.current === session.generation) {
       setLevels(QUIET_LEVELS);
+      setElapsedSeconds(0);
       setVisualizerMode("static");
     }
     if (activeSessionRef.current === session) activeSessionRef.current = null;
@@ -269,6 +290,7 @@ export function VoiceRecorder({
   async function startRecording() {
     if (disabled || !isOnlineNow()) return;
     setLevels(QUIET_LEVELS);
+    setElapsedSeconds(0);
     setVisualizerMode("static");
     setState("requesting");
     const session: RecordingSession = {
@@ -277,6 +299,8 @@ export function VoiceRecorder({
       stream: null,
       chunks: [],
       stopTimer: null,
+      elapsedTimer: null,
+      startedAt: null,
       discard: false,
       finished: false,
       failed: false,
@@ -335,11 +359,13 @@ export function VoiceRecorder({
         session.discard = true;
         session.failed = true;
         clearStopTimer(session);
+        clearElapsedTimer(session);
         stopAudioAnalysis(session);
         stopTracks(session);
         session.chunks = [];
         if (mountedRef.current && activeSessionRef.current === session) {
           setLevels(QUIET_LEVELS);
+          setElapsedSeconds(0);
           setVisualizerMode("static");
           setState("error");
         }
@@ -347,6 +373,21 @@ export function VoiceRecorder({
       };
 
       recorder.start();
+      session.startedAt = Date.now();
+      setElapsedSeconds(0);
+      session.elapsedTimer = setInterval(() => {
+        if (
+          !mountedRef.current ||
+          activeSessionRef.current !== session ||
+          session.startedAt === null ||
+          recorder.state !== "recording"
+        ) {
+          return;
+        }
+        setElapsedSeconds(
+          Math.floor((Date.now() - session.startedAt) / 1_000),
+        );
+      }, 1_000);
       if (
         !mountedRef.current ||
         activeSessionRef.current !== session ||
@@ -361,6 +402,7 @@ export function VoiceRecorder({
     } catch (error) {
       session.discard = true;
       clearStopTimer(session);
+      clearElapsedTimer(session);
       stopAudioAnalysis(session);
       stopTracks(session);
       session.chunks = [];
@@ -370,6 +412,7 @@ export function VoiceRecorder({
       }
       if (mountedRef.current && generationRef.current === session.generation) {
         setLevels(QUIET_LEVELS);
+        setElapsedSeconds(0);
         setVisualizerMode("static");
         setState(isPermissionDenied(error) ? "denied" : "error");
       }
@@ -399,6 +442,7 @@ export function VoiceRecorder({
       if (!session) return;
       session.discard = true;
       clearStopTimer(session);
+      clearElapsedTimer(session);
       stopAudioAnalysis(session);
       const recorder = session.recorder;
       session.recorder = null;
@@ -421,6 +465,9 @@ export function VoiceRecorder({
             <i aria-hidden="true" />
             Запис
           </span>
+          <time className="recording-timer" aria-hidden="true">
+            {formatElapsedTime(elapsedSeconds)}
+          </time>
         </div>
         <AudioWaveform
           levels={levels}

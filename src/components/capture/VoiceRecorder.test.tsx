@@ -123,6 +123,44 @@ it("shows the waveform only while recording", async () => {
   expect(screen.queryByTestId("audio-waveform")).not.toBeInTheDocument();
 });
 
+it("shows elapsed recording time from zero and advances every second", async () => {
+  vi.useFakeTimers();
+  microphone();
+  render(<VoiceRecorder onTranscript={vi.fn()} />);
+
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Почати запис" }));
+    await Promise.resolve();
+  });
+
+  expect(screen.getByText("00:00")).toBeVisible();
+  act(() => vi.advanceTimersByTime(1_000));
+  expect(screen.getByText("00:01")).toBeVisible();
+  act(() => vi.advanceTimersByTime(1_000));
+  expect(screen.getByText("00:02")).toBeVisible();
+});
+
+it("clears elapsed time when a recording session is discarded", async () => {
+  vi.useFakeTimers();
+  microphone();
+  const { rerender } = render(<VoiceRecorder onTranscript={vi.fn()} />);
+
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Почати запис" }));
+    await Promise.resolve();
+  });
+  act(() => vi.advanceTimersByTime(4_000));
+  expect(screen.getByText("00:04")).toBeVisible();
+
+  rerender(<VoiceRecorder onTranscript={vi.fn()} disabled />);
+  rerender(<VoiceRecorder onTranscript={vi.fn()} disabled={false} />);
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Почати запис" }));
+    await Promise.resolve();
+  });
+  expect(screen.getByText("00:00")).toBeVisible();
+});
+
 it("keeps the recording indicator static when reduced motion is requested", async () => {
   microphone();
   const AudioContextMock = vi.fn();
