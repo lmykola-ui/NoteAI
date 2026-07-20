@@ -144,7 +144,12 @@ it("keeps the recording indicator static when reduced motion is requested", asyn
 
 it("resumes a suspended audio context before sampling live levels", async () => {
   microphone();
-  const resume = vi.fn().mockResolvedValue(undefined);
+  let resolveResume!: () => void;
+  const resume = vi.fn().mockReturnValue(
+    new Promise<void>((resolve) => {
+      resolveResume = resolve;
+    }),
+  );
   const analyser = {
     fftSize: 0,
     smoothingTimeConstant: 0,
@@ -162,18 +167,52 @@ it("resumes a suspended audio context before sampling live levels", async () => 
     };
   });
   vi.stubGlobal("AudioContext", AudioContextMock);
-  vi.stubGlobal(
-    "requestAnimationFrame",
-    vi.fn().mockReturnValue(1),
-  );
+  const requestFrame = vi.fn().mockReturnValue(1);
+  vi.stubGlobal("requestAnimationFrame", requestFrame);
 
   render(<VoiceRecorder onTranscript={vi.fn()} />);
   await userEvent.click(screen.getByRole("button", { name: "Почати запис" }));
 
   expect(resume).toHaveBeenCalledOnce();
+  expect(requestFrame).not.toHaveBeenCalled();
+
+  await act(async () => {
+    resolveResume();
+    await Promise.resolve();
+  });
+
+  expect(requestFrame).toHaveBeenCalledOnce();
   expect(screen.getByTestId("audio-waveform")).not.toHaveClass(
     "is-fallback-active",
   );
+});
+
+it("closes a failed audio context before enabling the fallback", async () => {
+  microphone();
+  const close = vi.fn().mockResolvedValue(undefined);
+  const AudioContextMock = vi.fn(function MockAudioContext() {
+    return {
+      state: "suspended",
+      resume: vi.fn().mockRejectedValue(new Error("resume failed")),
+      close,
+      createAnalyser: vi.fn(),
+      createMediaStreamSource: vi.fn(),
+    };
+  });
+  const requestFrame = vi.fn().mockReturnValue(1);
+  vi.stubGlobal("AudioContext", AudioContextMock);
+  vi.stubGlobal("requestAnimationFrame", requestFrame);
+
+  render(<VoiceRecorder onTranscript={vi.fn()} />);
+  await userEvent.click(screen.getByRole("button", { name: "Почати запис" }));
+
+  await waitFor(() =>
+    expect(screen.getByTestId("audio-waveform")).toHaveClass(
+      "is-fallback-active",
+    ),
+  );
+  expect(requestFrame).not.toHaveBeenCalled();
+  expect(close).toHaveBeenCalledOnce();
 });
 
 it("transcribes one combined recording and cleans up every media track", async () => {

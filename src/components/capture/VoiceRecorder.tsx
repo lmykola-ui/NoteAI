@@ -204,9 +204,63 @@ export function VoiceRecorder({
     }
 
     const audioContext = new AudioContextClass();
-    setVisualizerMode("live");
+    session.audioContext = audioContext;
+
+    const beginSampling = () => {
+      if (
+        !mountedRef.current ||
+        activeSessionRef.current !== session ||
+        session.audioContext !== audioContext ||
+        session.discard
+      ) {
+        return;
+      }
+
+      const analyser = audioContext.createAnalyser();
+      const source = audioContext.createMediaStreamSource(stream);
+      analyser.fftSize = 64;
+      analyser.smoothingTimeConstant = 0.72;
+      source.connect(analyser);
+      session.audioSource = source;
+      session.analyser = analyser;
+      setVisualizerMode("live");
+
+      const samples = new Uint8Array(analyser.fftSize);
+      const sampleLevels = () => {
+        if (
+          !mountedRef.current ||
+          activeSessionRef.current !== session ||
+          session.discard ||
+          recorder.state !== "recording"
+        ) {
+          return;
+        }
+
+        analyser.getByteTimeDomainData(samples);
+        const sum = samples.reduce((total, sample) => {
+          const centered = (sample - 128) / 128;
+          return total + centered * centered;
+        }, 0);
+        const amplitude = Math.min(1, Math.sqrt(sum / samples.length) * 4.5);
+        setLevels((current) =>
+          current.map((previous, index) => {
+            const centerWeight = 1 - Math.abs(index - 6) / 9;
+            const target = Math.max(0.06, amplitude * centerWeight);
+            return previous * 0.68 + target * 0.32;
+          }),
+        );
+        session.animationFrame = requestAnimationFrame(sampleLevels);
+      };
+      session.animationFrame = requestAnimationFrame(sampleLevels);
+    };
+
     if (audioContext.state === "suspended") {
-      void audioContext.resume().catch(() => {
+      void audioContext.resume().then(beginSampling).catch(() => {
+        if (session.audioContext !== audioContext) return;
+        session.audioContext = null;
+        if (audioContext.state !== "closed") {
+          void audioContext.close().catch(() => undefined);
+        }
         if (
           mountedRef.current &&
           activeSessionRef.current === session &&
@@ -216,43 +270,10 @@ export function VoiceRecorder({
           setVisualizerMode("fallback");
         }
       });
+      return;
     }
-    const analyser = audioContext.createAnalyser();
-    const source = audioContext.createMediaStreamSource(stream);
-    analyser.fftSize = 64;
-    analyser.smoothingTimeConstant = 0.72;
-    source.connect(analyser);
-    session.audioContext = audioContext;
-    session.audioSource = source;
-    session.analyser = analyser;
 
-    const samples = new Uint8Array(analyser.fftSize);
-    const sampleLevels = () => {
-      if (
-        !mountedRef.current ||
-        activeSessionRef.current !== session ||
-        session.discard ||
-        recorder.state !== "recording"
-      ) {
-        return;
-      }
-
-      analyser.getByteTimeDomainData(samples);
-      const sum = samples.reduce((total, sample) => {
-        const centered = (sample - 128) / 128;
-        return total + centered * centered;
-      }, 0);
-      const amplitude = Math.min(1, Math.sqrt(sum / samples.length) * 4.5);
-      setLevels((current) =>
-        current.map((previous, index) => {
-          const centerWeight = 1 - Math.abs(index - 6) / 9;
-          const target = Math.max(0.06, amplitude * centerWeight);
-          return previous * 0.68 + target * 0.32;
-        }),
-      );
-      session.animationFrame = requestAnimationFrame(sampleLevels);
-    };
-    session.animationFrame = requestAnimationFrame(sampleLevels);
+    beginSampling();
   }
 
   async function startRecording() {
