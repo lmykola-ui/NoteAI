@@ -9,6 +9,7 @@ import {
   subscribeToOnlineStatus,
 } from "@/lib/connectivity";
 import { AudioWaveform } from "./AudioWaveform";
+import { AppIcon } from "@/components/icons/AppIcon";
 
 type RecorderState =
   | "idle"
@@ -416,13 +417,17 @@ export function VoiceRecorder({
   }
 
   return (
-    <button
-      type="button"
-      className="secondary-button"
-      onClick={startRecording}
-      disabled={disabled}
-    >
-      Почати запис
-    </button>
+    <div className="voice-start capture-state-enter">
+      <button
+        type="button"
+        className="mic-button"
+        aria-label="Почати запис"
+        onClick={startRecording}
+        disabled={disabled}
+      >
+        <AppIcon name="mic" size={36} decorative />
+      </button>
+      <span>Натисніть, щоб почати запис</span>
+    </div>
   );
 }

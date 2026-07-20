@@ -3,11 +3,11 @@ import HomePage from "./page";
 
 it("opens on the Ukrainian Capture screen", () => {
   render(<HomePage />);
-  expect(screen.getByRole("heading", { name: "Що в голові?" })).toBeVisible();
+  expect(screen.getByText("Скажіть усе як є. Решту впорядкуємо.")).toBeVisible();
   expect(
     screen.getByRole("region", { name: "Створення нотатки" }),
   ).toBeVisible();
   expect(screen.getByLabelText("Ваша нотатка")).toBeVisible();
   expect(screen.getByRole("navigation", { name: "Основна навігація" })).toBeVisible();
-  expect(screen.getByRole("button", { name: "Capture" })).toHaveAttribute("aria-current", "page");
+  expect(screen.getByRole("button", { name: "Запис" })).toHaveAttribute("aria-current", "page");
 });

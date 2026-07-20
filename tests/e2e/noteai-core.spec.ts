@@ -80,7 +80,7 @@ test("captures multiple domain-rich tasks, confirms preview, and survives reload
     .fill(
       "Молоко купити сьогодні, пошту глянути завтра, рахунок я вже оплатив, а домен продовжити через вісім днів — високий пріоритет",
     );
-  await page.getByRole("button", { name: "Розібрати" }).click();
+  await page.getByRole("button", { name: "Проаналізувати" }).click();
 
   await expect(page.getByLabel("Назва задачі").first()).toHaveValue(
     "Купити молоко",
@@ -127,7 +127,7 @@ test("shows an ambiguity clarification without inventing tasks", async ({ page }
 
   await page.goto("/");
   await page.getByLabel("Ваша нотатка").fill("Заплануй зустріч якось потім");
-  await page.getByRole("button", { name: "Розібрати" }).click();
+  await page.getByRole("button", { name: "Проаналізувати" }).click();
 
   await expect(page.getByRole("status")).toHaveText(
     "Коли саме запланувати зустріч?",
@@ -218,7 +218,7 @@ test("transcribes voice into editable text and parses only after explicit confir
   expect(parseRequests).toBe(0);
 
   await note.fill("Купити молоко сьогодні і хліб");
-  await page.getByRole("button", { name: "Розібрати" }).click();
+  await page.getByRole("button", { name: "Проаналізувати" }).click();
 
   await expect(page.getByLabel("Назва задачі")).toHaveValue(
     "Купити молоко і хліб",
@@ -253,7 +253,7 @@ test("keeps local tasks usable while AI is offline", async ({
 
   await page.goto("/");
   await page.getByLabel("Ваша нотатка").fill("Локальна задача");
-  await page.getByRole("button", { name: "Розібрати" }).click();
+  await page.getByRole("button", { name: "Проаналізувати" }).click();
   await expect(page.getByLabel("Назва задачі")).toHaveValue("Локальна задача");
   await page.getByRole("button", { name: "Додати все" }).click();
   await expect(page.getByRole("heading", { name: "Що в голові?" })).toBeVisible();

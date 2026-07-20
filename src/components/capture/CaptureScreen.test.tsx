@@ -35,6 +35,24 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+it("starts with quiet capture copy and a manual text surface", () => {
+  render(
+    <TaskProvider repository={createMemoryTaskRepository()}>
+      <CaptureScreen />
+    </TaskProvider>,
+  );
+
+  expect(screen.getByText("Скажіть усе як є. Решту впорядкуємо.")).toBeVisible();
+  expect(screen.queryByRole("heading", { name: "Що в голові?" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Почати запис" })).toBeVisible();
+  expect(screen.queryByTestId("audio-waveform")).not.toBeInTheDocument();
+  expect(screen.getByLabelText("Ваша нотатка")).toHaveAttribute(
+    "placeholder",
+    "Або введіть текст вручну",
+  );
+  expect(screen.getByRole("button", { name: "Проаналізувати" })).toBeDisabled();
+});
+
 it("shows editable preview and persists only after confirmation", async () => {
   const repository = createMemoryTaskRepository();
   const saved = repository.saved;
@@ -66,7 +84,7 @@ it("shows editable preview and persists only after confirmation", async () => {
   );
 
   await userEvent.type(screen.getByLabelText("Ваша нотатка"), "Купити молоко");
-  await userEvent.click(screen.getByRole("button", { name: "Розібрати" }));
+  await userEvent.click(screen.getByRole("button", { name: "Проаналізувати" }));
 
   expect(await screen.findByDisplayValue("Купити молоко")).toBeVisible();
   expect(saved).toHaveLength(0);
@@ -86,7 +104,7 @@ it("reports a parse failure without sending note content to analytics", async ()
   );
 
   await userEvent.type(screen.getByLabelText("Ваша нотатка"), "Приватна нотатка");
-  await userEvent.click(screen.getByRole("button", { name: "Розібрати" }));
+  await userEvent.click(screen.getByRole("button", { name: "Проаналізувати" }));
 
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Не вдалося проаналізувати нотатку",
@@ -118,7 +136,7 @@ it("preserves the original draft when returning from an unresolved clarification
     screen.getByLabelText("Ваша нотатка"),
     "Заплануй зустріч якось потім",
   );
-  await userEvent.click(screen.getByRole("button", { name: "Розібрати" }));
+  await userEvent.click(screen.getByRole("button", { name: "Проаналізувати" }));
   expect(await screen.findByRole("status")).toHaveTextContent(
     "Коли саме запланувати зустріч?",
   );
@@ -141,7 +159,7 @@ it("keeps the local draft editable while AI parsing is unavailable", async () =>
   await userEvent.type(note, "Локальна чернетка");
 
   expect(note).toBeEnabled();
-  expect(screen.getByRole("button", { name: "Розібрати" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Проаналізувати" })).toBeDisabled();
 });
 
 it("surfaces a local draft load failure without disabling capture", async () => {
@@ -213,7 +231,7 @@ it("keeps a deferred draft write failure visible after preview opens", async () 
   fireEvent.change(screen.getByLabelText("Ваша нотатка"), {
     target: { value: "Купити молоко" },
   });
-  await userEvent.click(screen.getByRole("button", { name: "Розібрати" }));
+  await userEvent.click(screen.getByRole("button", { name: "Проаналізувати" }));
   expect(await screen.findByLabelText("Назва задачі")).toHaveValue(
     "Купити молоко",
   );
@@ -261,7 +279,7 @@ it("keeps the edited preview mounted and retries a failed task save without dupl
   );
 
   await userEvent.type(screen.getByLabelText("Ваша нотатка"), "Купити молоко");
-  await userEvent.click(screen.getByRole("button", { name: "Розібрати" }));
+  await userEvent.click(screen.getByRole("button", { name: "Проаналізувати" }));
   const title = await screen.findByLabelText("Назва задачі");
   await userEvent.clear(title);
   await userEvent.type(title, "Купити хліб");
@@ -322,7 +340,7 @@ it("waits for the latest draft write before clearing it on confirmation", async 
   fireEvent.change(screen.getByLabelText("Ваша нотатка"), {
     target: { value: "Купити молоко" },
   });
-  await userEvent.click(screen.getByRole("button", { name: "Розібрати" }));
+  await userEvent.click(screen.getByRole("button", { name: "Проаналізувати" }));
   await userEvent.click(screen.getByRole("button", { name: "Додати все" }));
 
   expect(draftStoreMocks.clear).not.toHaveBeenCalled();
@@ -363,7 +381,7 @@ it("retries draft cleanup without persisting confirmed tasks again", async () =>
   );
 
   await userEvent.type(screen.getByLabelText("Ваша нотатка"), "Купити молоко");
-  await userEvent.click(screen.getByRole("button", { name: "Розібрати" }));
+  await userEvent.click(screen.getByRole("button", { name: "Проаналізувати" }));
   await userEvent.click(screen.getByRole("button", { name: "Додати все" }));
 
   expect(await screen.findByRole("alert")).toHaveTextContent(

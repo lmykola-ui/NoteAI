@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { QuickPreview } from "@/components/preview/QuickPreview";
 import { VoiceRecorder } from "@/components/capture/VoiceRecorder";
+import { AppIcon } from "@/components/icons/AppIcon";
 import { parseText } from "@/features/capture/application/parseClient";
 import { trackSafeEvent } from "@/lib/analytics";
 import {
@@ -191,21 +192,24 @@ export function CaptureScreen({
 
   return (
     <section aria-label="Створення нотатки" className="capture-screen">
-      <h1>Що в голові?</h1>
-      <p>Напишіть або скажіть усе підряд, а ми перетворимо це на задачі.</p>
-      <label className="capture-input">
-        Ваша нотатка
-        <textarea
-          value={text}
-          onChange={(event) => changeText(event.target.value)}
-          placeholder="Наприклад, купити молоко сьогодні"
-          rows={6}
-          disabled={isParsing}
-        />
-      </label>
+      {!text ? (
+        <p className="capture-helper">Скажіть усе як є. Решту впорядкуємо.</p>
+      ) : null}
       {isParsing ? null : (
         <VoiceRecorder onTranscript={handleTranscript} disabled={!aiAvailable} />
       )}
+      <label
+        className={`capture-input ${text ? "transcript-card" : "manual-entry"}`}
+      >
+        <span>{inputMethod === "voice" ? "Текст після запису" : "Ваша нотатка"}</span>
+        <textarea
+          value={text}
+          onChange={(event) => changeText(event.target.value)}
+          placeholder="Або введіть текст вручну"
+          rows={text ? 5 : 3}
+          disabled={isParsing}
+        />
+      </label>
       <p className="storage-help">Зберігається лише в цьому браузері</p>
       {captureState.kind === "error" ? (
         <p role="alert" className="capture-error">
@@ -219,11 +223,13 @@ export function CaptureScreen({
       ) : null}
       <button
         type="button"
-        className="primary-button"
+        className="primary-button analyze-button"
         onClick={() => parseCapture()}
         disabled={isParsing || !text.trim() || !aiAvailable}
+        aria-label="Проаналізувати"
       >
-        {isParsing ? "Аналізуємо…" : "Розібрати"}
+        {isParsing ? "Аналізуємо…" : "Проаналізувати"}
+        {isParsing ? null : <AppIcon name="send" size={18} decorative />}
       </button>
     </section>
   );

@@ -144,11 +144,11 @@ it("never starts an AI request from a same-tick offline event", async () => {
   });
   act(() => {
     window.dispatchEvent(new Event("offline"));
-    fireEvent.click(screen.getByRole("button", { name: "Розібрати" }));
+    fireEvent.click(screen.getByRole("button", { name: "Проаналізувати" }));
   });
 
   expect(fetchMock).not.toHaveBeenCalled();
-  expect(screen.getByRole("button", { name: "Розібрати" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Проаналізувати" })).toBeDisabled();
 });
 
 it("requests persistence once, only after the first successful confirmation resolves", async () => {
@@ -176,7 +176,7 @@ it("requests persistence once, only after the first successful confirmation reso
 
   expect(shellMocks.requestPersistence).not.toHaveBeenCalled();
   await user.type(screen.getByLabelText("Ваша нотатка"), "Перша нотатка");
-  await user.click(screen.getByRole("button", { name: "Розібрати" }));
+  await user.click(screen.getByRole("button", { name: "Проаналізувати" }));
   await user.click(await screen.findByRole("button", { name: "Додати все" }));
 
   expect(saveMany).toHaveBeenCalledOnce();
@@ -188,7 +188,7 @@ it("requests persistence once, only after the first successful confirmation reso
   );
 
   await user.type(screen.getByLabelText("Ваша нотатка"), "Друга нотатка");
-  await user.click(screen.getByRole("button", { name: "Розібрати" }));
+  await user.click(screen.getByRole("button", { name: "Проаналізувати" }));
   await user.click(await screen.findByRole("button", { name: "Додати все" }));
   await waitFor(() => expect(saveMany).toHaveBeenCalledTimes(2));
 

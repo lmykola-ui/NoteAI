@@ -86,7 +86,7 @@ it("keeps a typed draft available when microphone permission is denied", async (
   );
   expect(textarea).toBeEnabled();
   expect(textarea).toHaveValue("Купити молоко");
-  expect(screen.getByRole("button", { name: "Розібрати" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Проаналізувати" })).toBeEnabled();
 });
 
 it("puts an editable transcript in the shared textarea and waits for explicit voice parsing", async () => {
@@ -126,15 +126,15 @@ it("puts an editable transcript in the shared textarea and waits for explicit vo
   await userEvent.click(screen.getByRole("button", { name: "Зупинити запис" }));
 
   await waitFor(() =>
-    expect(screen.getByLabelText("Ваша нотатка")).toHaveValue(
+    expect(screen.getByLabelText("Текст після запису")).toHaveValue(
       "Купити молоко сьогодні",
     ),
   );
   const fetchMock = vi.mocked(fetch);
   expect(fetchMock).not.toHaveBeenCalled();
 
-  await userEvent.type(screen.getByLabelText("Ваша нотатка"), " і хліб");
-  await userEvent.click(screen.getByRole("button", { name: "Розібрати" }));
+  await userEvent.type(screen.getByLabelText("Текст після запису"), " і хліб");
+  await userEvent.click(screen.getByRole("button", { name: "Проаналізувати" }));
 
   expect(fetchMock).toHaveBeenCalledOnce();
   const [, request] = fetchMock.mock.calls[0] as [string, RequestInit];
@@ -181,12 +181,12 @@ it("resets parsing to text after the user clears a transcript and starts a new n
 
   await userEvent.click(screen.getByRole("button", { name: "Почати запис" }));
   await userEvent.click(screen.getByRole("button", { name: "Зупинити запис" }));
-  const textarea = await screen.findByLabelText("Ваша нотатка");
+  const textarea = await screen.findByLabelText("Текст після запису");
   await waitFor(() => expect(textarea).toHaveValue("Голосова нотатка"));
 
   await userEvent.clear(textarea);
   await userEvent.type(textarea, "Написати лист");
-  await userEvent.click(screen.getByRole("button", { name: "Розібрати" }));
+  await userEvent.click(screen.getByRole("button", { name: "Проаналізувати" }));
 
   const [, request] = fetchMock.mock.calls[0] as [string, RequestInit];
   expect(JSON.parse(request.body as string)).toMatchObject({
