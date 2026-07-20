@@ -76,4 +76,21 @@ describe("toOpenAIErrorDiagnostic", () => {
     });
     expect(JSON.stringify(diagnostic)).not.toContain("private model output");
   });
+
+  it("classifies a local OpenAI parser error without copying its message", () => {
+    const ForeignOpenAIError = class OpenAIError extends Error {};
+    const diagnostic = toOpenAIErrorDiagnostic(
+      new ForeignOpenAIError("private model output"),
+    );
+
+    expect(diagnostic).toEqual({
+      event: "openai_request_failed",
+      errorType: "invalid_ai_response",
+      status: null,
+      code: null,
+      requestId: null,
+      timedOut: false,
+    });
+    expect(JSON.stringify(diagnostic)).not.toContain("private model output");
+  });
 });

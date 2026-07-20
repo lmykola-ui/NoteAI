@@ -33,6 +33,7 @@ const errorTypes = {
   APIConnectionTimeoutError: "timeout",
   APIError: "api_error",
   InternalServerError: "api_error",
+  OpenAIError: "invalid_ai_response",
   ZodError: "invalid_ai_response",
   SyntaxError: "invalid_ai_response",
   LengthFinishReasonError: "invalid_ai_response",

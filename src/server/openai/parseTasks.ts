@@ -139,7 +139,10 @@ function isRetryableStructuredOutputError(error: unknown) {
     error instanceof z.ZodError ||
     error instanceof SyntaxError ||
     constructorName === "ZodError" ||
-    constructorName === "SyntaxError"
+    constructorName === "SyntaxError" ||
+    constructorName === "OpenAIError" ||
+    constructorName === "LengthFinishReasonError" ||
+    constructorName === "ContentFilterFinishReasonError"
   );
 }
 
