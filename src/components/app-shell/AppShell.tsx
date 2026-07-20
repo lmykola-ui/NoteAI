@@ -8,16 +8,24 @@ import {
 import { CaptureScreen } from "@/components/capture/CaptureScreen";
 import { InboxScreen } from "@/components/tasks/InboxScreen";
 import { PlanScreen } from "@/components/tasks/PlanScreen";
+import {
+  AppIcon,
+  type AppIconName,
+} from "@/components/icons/AppIcon";
 import { useTasks } from "@/features/tasks/application/TaskProvider";
 import { useLocalToday } from "@/features/tasks/application/useLocalToday";
 import { requestLocalPersistence } from "@/lib/storagePersistence";
 
 type Destination = "capture" | "inbox" | "plan";
 
-const destinations: Array<{ id: Destination; label: string }> = [
-  { id: "capture", label: "Capture" },
-  { id: "inbox", label: "Inbox" },
-  { id: "plan", label: "План" },
+const destinations: Array<{
+  id: Destination;
+  label: string;
+  icon: AppIconName;
+}> = [
+  { id: "capture", label: "Запис", icon: "audio" },
+  { id: "plan", label: "Задачі", icon: "tasks" },
+  { id: "inbox", label: "Inbox", icon: "inbox" },
 ];
 
 export function AppShell() {
@@ -78,14 +86,18 @@ export function AppShell() {
       ) : null}
       {error ? <p role="alert" className="capture-error">{error}</p> : null}
       <nav aria-label="Основна навігація" className="bottom-nav">
-        {destinations.map(({ id, label }) => (
+        {destinations.map(({ id, label, icon }) => (
           <button
             key={id}
             type="button"
+            aria-label={label}
             aria-current={destination === id ? "page" : undefined}
             onClick={() => setDestination(id)}
           >
-            {label}
+            <AppIcon name={icon} size={22} decorative />
+            {destination === id ? (
+              <span className="active-nav-indicator" aria-hidden="true" />
+            ) : null}
           </button>
         ))}
       </nav>

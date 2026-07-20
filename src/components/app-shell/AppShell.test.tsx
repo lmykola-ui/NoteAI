@@ -1,4 +1,11 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { TaskProvider } from "@/features/tasks/application/TaskProvider";
@@ -56,7 +63,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it("opens Capture and switches between exactly three destinations", async () => {
+it("opens Capture and exposes exactly three icon-only destinations", async () => {
   const user = userEvent.setup();
   const repository = createMemoryTaskRepository();
 
@@ -66,11 +73,14 @@ it("opens Capture and switches between exactly three destinations", async () => 
     </TaskProvider>,
   );
 
-  expect(screen.getByRole("heading", { name: "Що в голові?" })).toBeVisible();
-  expect(screen.getAllByRole("navigation")).toHaveLength(1);
-  expect(
-    screen.getAllByRole("button", { name: /^(Capture|Inbox|План)$/ }),
-  ).toHaveLength(3);
+  const navigation = screen.getByRole("navigation", {
+    name: "Основна навігація",
+  });
+  expect(within(navigation).getAllByRole("button")).toHaveLength(3);
+  expect(screen.getByRole("button", { name: "Запис" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
 
   await user.click(screen.getByRole("button", { name: "Inbox" }));
   expect(screen.getByRole("heading", { name: "Inbox" })).toBeVisible();
@@ -79,8 +89,12 @@ it("opens Capture and switches between exactly three destinations", async () => 
     "page",
   );
 
-  await user.click(screen.getByRole("button", { name: "План" }));
+  await user.click(screen.getByRole("button", { name: "Задачі" }));
   expect(screen.getByRole("heading", { name: "План" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Задачі" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
 });
 
 it("announces local task hydration until the repository load settles", async () => {
