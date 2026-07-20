@@ -68,7 +68,7 @@ export function PlanScreen({ tasks, today, ...actions }: PlanScreenProps) {
       ) : (
         weekTasks.length ? (
           <div className="week-list period-content-enter">
-          {weekDayGroups.map(({ date, tasks: dayTasks }) => (
+            {weekDayGroups.map(({ date, tasks: dayTasks }) => (
               <section
                 key={date}
                 className="week-day"
@@ -87,7 +87,7 @@ export function PlanScreen({ tasks, today, ...actions }: PlanScreenProps) {
                   ))}
                 </div>
               </section>
-          ))}
+            ))}
           </div>
         ) : (
           <p className="empty-state period-content-enter">
