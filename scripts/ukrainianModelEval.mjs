@@ -187,6 +187,38 @@ export const ukrainianModelEvalCases = [
       clarification: "none",
     },
   },
+  {
+    name: "atomic prioritized template titles",
+    input:
+      "Схема: зробити три шаблони (перший — пріоритетний, другий — середній, третій — низька пріоритетність)",
+    today: "2026-07-20",
+    expected: {
+      tasks: [
+        expectedTask([["зроб"], ["перш"], ["шаблон"]], {
+          scheduledDate: null,
+          scheduledTime: null,
+          status: "active",
+          priority: "high",
+          forbiddenTitleTerms: ["схема", "три шаблони", "пріоритет"],
+        }),
+        expectedTask([["зроб"], ["друг"], ["шаблон"]], {
+          scheduledDate: null,
+          scheduledTime: null,
+          status: "active",
+          priority: "medium",
+          forbiddenTitleTerms: ["схема", "три шаблони", "пріоритет"],
+        }),
+        expectedTask([["зроб"], ["трет"], ["шаблон"]], {
+          scheduledDate: null,
+          scheduledTime: null,
+          status: "active",
+          priority: "low",
+          forbiddenTitleTerms: ["схема", "три шаблони", "пріоритет"],
+        }),
+      ],
+      clarification: "none",
+    },
+  },
 ];
 
 function normalizeTitle(value) {
@@ -229,6 +261,13 @@ export function evaluateUkrainianModelCase(definition, actual) {
         );
       }
     });
+
+    for (const forbiddenTerm of expectedTaskDefinition.forbiddenTitleTerms ?? []) {
+      if (normalizedTitle.includes(forbiddenTerm)) {
+        issues.push(`task ${taskNumber} title: contains repeated shared context`);
+        break;
+      }
+    }
 
     for (const field of [
       "scheduledDate",

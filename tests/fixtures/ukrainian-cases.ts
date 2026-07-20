@@ -206,4 +206,36 @@ export const ukrainianParserContractCases = [
       clarification: null,
     },
   }),
+  parserContractCase({
+    name: "splits a shared template action into atomic prioritized titles",
+    input:
+      "Схема: зробити три шаблони (перший — пріоритетний, другий — середній, третій — низька пріоритетність)",
+    today: "2026-07-20",
+    modelOutput: {
+      tasks: [
+        {
+          title: "Зробити перший шаблон",
+          scheduledDate: null,
+          scheduledTime: null,
+          status: "active",
+          priority: "high",
+        },
+        {
+          title: "Зробити другий шаблон",
+          scheduledDate: null,
+          scheduledTime: null,
+          status: "active",
+          priority: "medium",
+        },
+        {
+          title: "Зробити третій шаблон",
+          scheduledDate: null,
+          scheduledTime: null,
+          status: "active",
+          priority: "low",
+        },
+      ],
+      clarification: null,
+    },
+  }),
 ] satisfies UkrainianParserContractCase[];
