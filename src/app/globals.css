@@ -94,13 +94,16 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-
 .priority-high { --priority-color: var(--danger); }
 .priority-medium { --priority-color: var(--warning); }
 .priority-normal { --priority-color: var(--info); }
+.priority-high::before { top: 10px; bottom: 10px; width: 6px; }
+.priority-medium::before { top: 16px; bottom: 16px; width: 4px; }
+.priority-normal::before { top: 22px; bottom: 22px; width: 3px; }
 .task-card-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .task-card-heading h2 { margin: 0; font-size: 1.1rem; }
 .task-card-heading span, .task-overdue { color: #ffc0bd; }
 .task-meta, .empty-state { margin: 0; color: var(--color-muted); }
 .task-overdue { margin: 0; font-weight: 700; }
 .task-card-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.task-icon-button { display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid var(--border); border-radius: 13px; color: var(--muted); background: transparent; cursor: pointer; transition: color var(--motion-fast) ease, border-color var(--motion-fast) ease, background var(--motion-fast) ease; }
+.task-icon-button { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--border); border-radius: 14px; color: var(--muted); background: transparent; cursor: pointer; transition: color var(--motion-fast) ease, border-color var(--motion-fast) ease, background var(--motion-fast) ease; }
 .task-icon-button:hover { border-color: var(--border-strong); color: var(--text); background: var(--surface-hover); }
 .task-delete-button:hover { color: var(--danger); }
 .task-edit-form { display: grid; gap: 12px; }
@@ -110,10 +113,10 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-
 .completed-tasks summary { cursor: pointer; color: var(--color-muted); }
 .plan-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .period-menu { position: relative; }
-.period-trigger { display: inline-flex; min-height: 42px; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 14px; padding: 0 13px; color: var(--text); background: var(--surface-raised); cursor: pointer; transition: border-color var(--motion-fast) ease, background var(--motion-fast) ease; }
+.period-trigger { display: inline-flex; min-height: 44px; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 14px; padding: 0 13px; color: var(--text); background: var(--surface-raised); cursor: pointer; transition: border-color var(--motion-fast) ease, background var(--motion-fast) ease; }
 .period-trigger:hover { border-color: var(--border-strong); background: var(--surface-hover); }
 .period-options { position: absolute; z-index: 20; top: calc(100% + 8px); right: 0; display: grid; width: 164px; padding: 6px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface-raised); box-shadow: 0 18px 52px rgb(0 0 0 / 35%); animation: period-menu-enter var(--motion-fast) var(--motion-ease) both; }
-.period-options button { display: flex; align-items: center; justify-content: space-between; min-height: 42px; border: 0; border-radius: 11px; padding: 0 10px; color: var(--text); background: transparent; cursor: pointer; }
+.period-options button { display: flex; align-items: center; justify-content: space-between; min-height: 44px; border: 0; border-radius: 11px; padding: 0 10px; color: var(--text); background: transparent; cursor: pointer; }
 .period-options button:hover, .period-options button:focus-visible { background: var(--surface-hover); }
 .week-list { display: grid; gap: 24px; }
 .week-day { display: grid; gap: 10px; }

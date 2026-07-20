@@ -19,6 +19,7 @@ export function PeriodMenu({ value, onChange }: PeriodMenuProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const selected = options.find((option) => option.value === value) ?? options[0];
 
   function closeAndFocus() {
@@ -28,6 +29,12 @@ export function PeriodMenu({ value, onChange }: PeriodMenuProps) {
 
   useEffect(() => {
     if (!open) return;
+
+    const selectedIndex = Math.max(
+      0,
+      options.findIndex((option) => option.value === value),
+    );
+    optionRefs.current[selectedIndex]?.focus();
 
     function handlePointerDown(event: PointerEvent) {
       if (!rootRef.current?.contains(event.target as Node)) {
@@ -39,6 +46,27 @@ export function PeriodMenu({ value, onChange }: PeriodMenuProps) {
       if (event.key === "Escape") {
         event.preventDefault();
         closeAndFocus();
+        return;
+      }
+
+      const currentIndex = optionRefs.current.findIndex(
+        (option) => option === document.activeElement,
+      );
+      let nextIndex: number | null = null;
+      if (event.key === "ArrowDown") {
+        nextIndex = (Math.max(0, currentIndex) + 1) % options.length;
+      } else if (event.key === "ArrowUp") {
+        nextIndex =
+          (currentIndex <= 0 ? options.length : currentIndex) - 1;
+      } else if (event.key === "Home") {
+        nextIndex = 0;
+      } else if (event.key === "End") {
+        nextIndex = options.length - 1;
+      }
+
+      if (nextIndex !== null) {
+        event.preventDefault();
+        optionRefs.current[nextIndex]?.focus();
       }
     }
 
@@ -48,7 +76,7 @@ export function PeriodMenu({ value, onChange }: PeriodMenuProps) {
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open]);
+  }, [open, value]);
 
   return (
     <div className="period-menu" ref={rootRef}>
@@ -66,12 +94,16 @@ export function PeriodMenu({ value, onChange }: PeriodMenuProps) {
       </button>
       {open ? (
         <div className="period-options" role="menu" aria-label="Період задач">
-          {options.map((option) => (
+          {options.map((option, index) => (
             <button
               key={option.value}
+              ref={(element) => {
+                optionRefs.current[index] = element;
+              }}
               type="button"
               role="menuitemradio"
               aria-checked={value === option.value}
+              tabIndex={value === option.value ? 0 : -1}
               onClick={() => {
                 onChange(option.value);
                 closeAndFocus();

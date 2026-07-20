@@ -1,6 +1,6 @@
 # NoteAI Card-System Redesign
 
-Date: 2026-07-20  
+Date: 2026-07-20
 Status: Approved design
 
 ## 1. Goal

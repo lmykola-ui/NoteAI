@@ -107,3 +107,14 @@ it("keeps today mode aligned when the date rolls", () => {
   expect(screen.getByText("Нова сьогоднішня задача")).toBeVisible();
   expect(screen.queryByText(todayTask.title)).not.toBeInTheDocument();
 });
+
+it("shows one calm state when the whole week is empty", async () => {
+  const user = userEvent.setup();
+  render(<PlanScreen tasks={[]} today="2026-07-19" {...actions} />);
+
+  await user.click(screen.getByRole("button", { name: "Змінити період" }));
+  await user.click(screen.getByRole("menuitemradio", { name: "Тиждень" }));
+
+  expect(screen.getByText("На цей тиждень задач немає.")).toBeVisible();
+  expect(screen.queryByRole("group", { name: /День/ })).not.toBeInTheDocument();
+});

@@ -38,3 +38,23 @@ it("closes on Escape and returns focus to the trigger", async () => {
   expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   expect(trigger).toHaveFocus();
 });
+
+it("moves focus through menu options with arrow, Home, and End keys", async () => {
+  const user = userEvent.setup();
+  const onChange = vi.fn();
+
+  render(<PeriodMenu value="today" onChange={onChange} />);
+  await user.click(screen.getByRole("button", { name: "Змінити період" }));
+
+  const today = screen.getByRole("menuitemradio", { name: "Сьогодні" });
+  const week = screen.getByRole("menuitemradio", { name: "Тиждень" });
+  expect(today).toHaveFocus();
+
+  await user.keyboard("{ArrowDown}");
+  expect(week).toHaveFocus();
+  await user.keyboard("{Home}");
+  expect(today).toHaveFocus();
+  await user.keyboard("{End}{Enter}");
+
+  expect(onChange).toHaveBeenCalledWith("week");
+});

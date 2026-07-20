@@ -120,6 +120,22 @@ it("shows the waveform only while recording", async () => {
   expect(screen.queryByTestId("audio-waveform")).not.toBeInTheDocument();
 });
 
+it("keeps the recording indicator static when reduced motion is requested", async () => {
+  microphone();
+  const AudioContextMock = vi.fn();
+  vi.stubGlobal("AudioContext", AudioContextMock);
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn().mockReturnValue({ matches: true }),
+  );
+
+  render(<VoiceRecorder onTranscript={vi.fn()} />);
+  await userEvent.click(screen.getByRole("button", { name: "Почати запис" }));
+
+  expect(screen.getByTestId("audio-waveform")).toBeVisible();
+  expect(AudioContextMock).not.toHaveBeenCalled();
+});
+
 it("transcribes one combined recording and cleans up every media track", async () => {
   const firstTrack = { stop: vi.fn() } as unknown as MediaStreamTrack;
   const secondTrack = { stop: vi.fn() } as unknown as MediaStreamTrack;

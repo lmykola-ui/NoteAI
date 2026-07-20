@@ -38,6 +38,9 @@ export function PlanScreen({ tasks, today, ...actions }: PlanScreenProps) {
     .filter((task) => task.status === "active")
     .sort(comparePlanTasks);
   const todayTasks = activeTasks.filter((task) => task.scheduledDate === today);
+  const weekTasks = activeTasks.filter(
+    (task) => task.scheduledDate && dates.includes(task.scheduledDate),
+  );
 
   return (
     <section className="task-screen screen-enter" aria-label="План">
@@ -59,7 +62,8 @@ export function PlanScreen({ tasks, today, ...actions }: PlanScreenProps) {
           </p>
         )
       ) : (
-        <div className="week-list period-content-enter">
+        weekTasks.length ? (
+          <div className="week-list period-content-enter">
           {dates.map((date) => {
             const dayTasks = activeTasks.filter(
               (task) => task.scheduledDate === date,
@@ -83,13 +87,16 @@ export function PlanScreen({ tasks, today, ...actions }: PlanScreenProps) {
                       />
                     ))}
                   </div>
-                ) : (
-                  <p className="week-empty">Немає задач</p>
-                )}
+                ) : null}
               </section>
             );
           })}
-        </div>
+          </div>
+        ) : (
+          <p className="empty-state period-content-enter">
+            На цей тиждень задач немає.
+          </p>
+        )
       )}
     </section>
   );

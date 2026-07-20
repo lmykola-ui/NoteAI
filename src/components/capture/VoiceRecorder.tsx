@@ -180,6 +180,11 @@ export function VoiceRecorder({
     stream: MediaStream,
     recorder: MediaRecorder,
   ) {
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      setLevels(QUIET_LEVELS);
+      return;
+    }
+
     const AudioContextClass = window.AudioContext;
     if (!AudioContextClass) {
       setLevels(QUIET_LEVELS);
