@@ -21,8 +21,8 @@ it("uses the configured OpenAI model and falls back to gpt-5-nano", () => {
   expect(resolveUkrainianModel({ OPENAI_MODEL: "" })).toBe("gpt-5-nano");
 });
 
-it("evaluates the exact same ten inputs as the mocked parser contract", () => {
-  expect(ukrainianModelEvalCases).toHaveLength(10);
+it("evaluates the exact same eleven inputs as the mocked parser contract", () => {
+  expect(ukrainianModelEvalCases).toHaveLength(11);
   expect(ukrainianModelEvalCases.map(({ input, today }) => ({ input, today }))).toEqual(
     ukrainianParserContractCases.map(({ input, today }) => ({ input, today })),
   );
@@ -78,6 +78,41 @@ it("rejects semantic drift and invented tasks in the ambiguity case", () => {
   expect(inventedTask).toContain("task count: expected 0, received 1");
 });
 
+it("rejects repeated shared context in atomic template titles", () => {
+  const definition = ukrainianModelEvalCases[10];
+  const issues = evaluateUkrainianModelCase(definition, {
+    tasks: [
+      {
+        title:
+          "Схема: зробити три шаблони (перший — пріоритетний, другий — середній, третій — низька пріоритетність)",
+        scheduledDate: null,
+        scheduledTime: null,
+        status: "active",
+        priority: "high",
+      },
+      {
+        title: "Схема: зробити три шаблони (другий — середній)",
+        scheduledDate: null,
+        scheduledTime: null,
+        status: "active",
+        priority: "medium",
+      },
+      {
+        title: "Схема: зробити три шаблони (третій — низька пріоритетність)",
+        scheduledDate: null,
+        scheduledTime: null,
+        status: "active",
+        priority: "low",
+      },
+    ],
+    clarification: null,
+  });
+
+  expect(issues).toContain("task 1 title: contains repeated shared context");
+  expect(issues).toContain("task 2 title: contains repeated shared context");
+  expect(issues).toContain("task 3 title: contains repeated shared context");
+});
+
 it("runs every case through a model-backed structured-output request", async () => {
   const parse = vi.fn();
   for (const definition of ukrainianParserContractCases) {
@@ -89,9 +124,9 @@ it("runs every case through a model-backed structured-output request", async () 
     model: "configured-model",
   });
 
-  expect(results).toHaveLength(10);
+  expect(results).toHaveLength(11);
   expect(results.every(({ issues }) => issues.length === 0)).toBe(true);
-  expect(parse).toHaveBeenCalledTimes(10);
+  expect(parse).toHaveBeenCalledTimes(11);
   expect(parse.mock.calls[0]?.[0]).toEqual(
     expect.objectContaining({
       model: "configured-model",
