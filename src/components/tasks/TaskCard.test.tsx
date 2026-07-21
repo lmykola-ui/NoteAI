@@ -35,7 +35,10 @@ it("opens editing from the task content without completing it", async () => {
 it("restores a completed task from its completion circle", async () => {
   const user = userEvent.setup(); const onRestore = vi.fn();
   render(<TaskCard task={makeTask({ status: "completed" })} today="2026-07-19" onComplete={vi.fn()} onRestore={onRestore} />);
-  await user.click(screen.getByRole("button", { name: /Відновити/ }));
+  const completion = screen.getByRole("button", { name: /Відновити/ });
+  expect(screen.getByRole("article")).toHaveClass("task-card--completed");
+  expect(completion.querySelector("svg")).toBeInTheDocument();
+  await user.click(completion);
   expect(onRestore).toHaveBeenCalledWith("task-1");
 });
 

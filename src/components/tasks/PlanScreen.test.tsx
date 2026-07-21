@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 import { makeTask } from "../../../tests/fixtures/taskFactory";
 import { PlanScreen } from "./PlanScreen";
@@ -19,4 +20,37 @@ it("orders timed today tasks before untimed tasks", () => {
   const untimed = makeTask({ id: "untimed", title: "Без часу", scheduledDate: "2026-07-19", scheduledTime: null });
   render(<PlanScreen tasks={[untimed, timed]} today="2026-07-19" {...actions} />);
   expect(screen.getAllByRole("article").map((card) => card.getAttribute("aria-label"))).toEqual(["Раніше", "Без часу"]);
+});
+
+it("calculates today progress from every task scheduled for the day", () => {
+  const tasks = [
+    makeTask({ id: "one", scheduledDate: "2026-07-19", status: "completed" }),
+    makeTask({ id: "two", scheduledDate: "2026-07-19" }),
+    makeTask({ id: "three", scheduledDate: "2026-07-19" }),
+    makeTask({ id: "four", scheduledDate: "2026-07-19" }),
+    makeTask({ id: "tomorrow", scheduledDate: "2026-07-20", status: "completed" }),
+  ];
+
+  render(<PlanScreen tasks={tasks} today="2026-07-19" {...actions} />);
+
+  expect(screen.getByText("25%")).toBeVisible();
+  expect(screen.getByRole("img", { name: "Емоція прогресу: 0–25%" })).toBeVisible();
+});
+
+it("celebrates completion and lets people reveal completed tasks", async () => {
+  const user = userEvent.setup();
+  const tasks = [
+    makeTask({ id: "one", scheduledDate: "2026-07-19", status: "completed" }),
+    makeTask({ id: "two", scheduledDate: "2026-07-19", status: "completed" }),
+  ];
+
+  render(<PlanScreen tasks={tasks} today="2026-07-19" {...actions} />);
+
+  expect(screen.getByRole("heading", { name: "Вітаємо!" })).toBeVisible();
+  expect(screen.getByText("Сьогодні всі плани виконані")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Показати виконані (2)" })).toBeVisible();
+
+  await user.click(screen.getByRole("button", { name: "Показати виконані (2)" }));
+
+  expect(screen.getByRole("button", { name: "Сховати виконані (2)" })).toBeVisible();
 });

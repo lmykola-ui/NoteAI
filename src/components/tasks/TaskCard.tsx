@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarClock, ChevronDown, ChevronUp, ChevronsUp, Minus } from "lucide-react";
+import { CalendarClock, Check, ChevronDown, ChevronUp, ChevronsUp, Minus } from "lucide-react";
 import { isOverdue } from "@/features/tasks/domain/dateWindow";
 import { formatTaskSchedule, priorityPresentation } from "@/features/tasks/domain/taskPresentation";
 import type { Task } from "@/features/tasks/domain/task";
@@ -29,10 +29,12 @@ export function TaskCard({ task, today, onComplete, onRestore, onEdit }: TaskCar
   }
 
   return (
-    <article aria-label={task.title} className="task-card">
-      <button type="button" className={`task-completion task-completion--${priority.tone}`} aria-label={task.status === "active" ? `Позначити «${task.title}» виконаною` : `Відновити «${task.title}»`} onClick={toggleCompletion} />
+    <article aria-label={task.title} className={`task-card${task.status === "completed" ? " task-card--completed" : ""}`}>
+      <button type="button" className={`task-completion task-completion--${priority.tone}`} aria-label={task.status === "active" ? `Позначити «${task.title}» виконаною` : `Відновити «${task.title}»`} onClick={toggleCompletion}>
+        {task.status === "completed" ? <Check size={14} strokeWidth={3} aria-hidden="true" /> : null}
+      </button>
       <button type="button" className="task-card-content" aria-label={`Редагувати «${task.title}»`} onClick={() => onEdit?.(task)}>
-        <div className="task-card-heading"><h2>{task.title}</h2>{task.status === "completed" ? <span>Виконано</span> : null}</div>
+        <div className="task-card-heading"><h2>{task.title}</h2></div>
         {task.description ? <p className="task-description">{task.description}</p> : null}
         <p className="task-meta"><CalendarClock size={15} strokeWidth={2} aria-hidden="true" />{formatTaskSchedule(task, today)}</p>
       </button>
