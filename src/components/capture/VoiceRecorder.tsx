@@ -190,7 +190,10 @@ export function VoiceRecorder({
     stream: MediaStream,
     recorder: MediaRecorder,
   ) => {
-    const AudioContextClass = window.AudioContext;
+    const AudioContextClass =
+      window.AudioContext ??
+      (window as Window & { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext;
     if (!AudioContextClass) return;
 
     try {

@@ -187,6 +187,34 @@ it("resumes a suspended audio context before sampling microphone levels", async 
   await waitFor(() => expect(source.connect).toHaveBeenCalledWith(analyser));
 });
 
+it("uses the prefixed mobile audio context when the standard name is unavailable", async () => {
+  microphone();
+  const analyser = {
+    fftSize: 0,
+    smoothingTimeConstant: 0,
+    disconnect: vi.fn(),
+    getByteTimeDomainData: vi.fn(),
+  };
+  const source = { connect: vi.fn(), disconnect: vi.fn() };
+  const WebkitAudioContextMock = vi.fn(function MockAudioContext() {
+    return {
+      state: "running",
+      close: vi.fn().mockResolvedValue(undefined),
+      createAnalyser: vi.fn().mockReturnValue(analyser),
+      createMediaStreamSource: vi.fn().mockReturnValue(source),
+    };
+  });
+  vi.stubGlobal("AudioContext", undefined);
+  vi.stubGlobal("webkitAudioContext", WebkitAudioContextMock);
+  vi.stubGlobal("requestAnimationFrame", vi.fn().mockReturnValue(1));
+
+  render(<VoiceRecorder onTranscript={vi.fn()} />);
+  await userEvent.click(screen.getByRole("button", { name: "Почати запис" }));
+
+  expect(WebkitAudioContextMock).toHaveBeenCalledOnce();
+  expect(source.connect).toHaveBeenCalledWith(analyser);
+});
+
 it("starts listening automatically for the voice-first flow", async () => {
   const { getUserMedia } = microphone();
   render(<VoiceRecorder autoStart onTranscript={vi.fn()} />);
