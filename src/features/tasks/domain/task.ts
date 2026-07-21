@@ -14,6 +14,7 @@ export type Task = {
   createdAt: string;
   updatedAt: string;
   completedAt: string | null;
+  inboxOrder?: number | null;
 };
 
 export type TaskDraft = Pick<
@@ -34,5 +35,6 @@ export function materializeTask(draft: TaskDraft, now = new Date()): Task {
     createdAt: timestamp,
     updatedAt: timestamp,
     completedAt: draft.status === "completed" ? timestamp : null,
+    inboxOrder: null,
   };
 }
