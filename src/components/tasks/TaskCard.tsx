@@ -19,7 +19,7 @@ type TaskCardProps = {
 
 type EditableTask = Pick<
   Task,
-  "title" | "scheduledDate" | "scheduledTime" | "priority"
+  "title" | "description" | "scheduledDate" | "scheduledTime" | "priority"
 >;
 
 type TaskAction = (id: string) => void | Promise<void>;
@@ -27,6 +27,7 @@ type TaskAction = (id: string) => void | Promise<void>;
 function toEditableTask(task: Task): EditableTask {
   return {
     title: task.title,
+    description: task.description,
     scheduledDate: task.scheduledDate,
     scheduledTime: task.scheduledTime,
     priority: task.priority,
@@ -75,7 +76,8 @@ export function TaskCard({
 
   if (editing) {
     return (
-      <article aria-label={task.title} className="task-card">
+      <div className="task-edit-backdrop">
+      <article aria-label={task.title} className="task-card task-edit-popover">
         <form className="task-edit-form" onSubmit={saveChanges}>
           {mutationError ? (
             <p role="alert" className="capture-error">
@@ -90,6 +92,14 @@ export function TaskCard({
                 setDraft((current) => ({ ...current, title: event.target.value }))
               }
               required
+            />
+          </label>
+          <label>
+            Опис задачі
+            <textarea
+              value={draft.description ?? ""}
+              onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value || undefined }))}
+              rows={3}
             />
           </label>
           <label>
@@ -149,6 +159,7 @@ export function TaskCard({
           </div>
         </form>
       </article>
+      </div>
     );
   }
 

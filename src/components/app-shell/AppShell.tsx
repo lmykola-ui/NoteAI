@@ -28,6 +28,7 @@ export function AppShell() {
   const [composerOpen, setComposerOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [utilityScreen, setUtilityScreen] = useState<"premium" | "settings" | "onboarding" | null>(null);
   const [undoTaskId, setUndoTaskId] = useState<string | null>(null);
   const isOnline = useOnlineStatus();
   const persistenceRequested = useRef(false);
@@ -59,7 +60,8 @@ export function AppShell() {
         </p>
       ) : null}
       {historyOpen ? <HistoryScreen tasks={tasks} today={today} onRestore={restoreTask} onDelete={deleteTask} onClose={() => setHistoryOpen(false)} /> : null}
-      {!historyOpen && destination === "capture" ? (
+      {utilityScreen ? <section className="task-screen utility-screen" aria-label={utilityScreen === "settings" ? "Налаштування" : utilityScreen === "premium" ? "Premium" : "Онбординг"}><div className="screen-heading"><h1>{utilityScreen === "settings" ? "Налаштування" : utilityScreen === "premium" ? "Premium" : "Онбординг"}</h1><button type="button" className="secondary-button" onClick={() => setUtilityScreen(null)}>Назад</button></div><p className="empty-state">{utilityScreen === "settings" ? "Налаштування застосунку з’являться тут." : utilityScreen === "premium" ? "Можливості Premium з’являться тут." : "Коротке знайомство з NoteAI з’явиться тут."}</p></section> : null}
+      {!historyOpen && !utilityScreen && destination === "capture" ? (
         <CaptureScreen
           aiAvailable={isOnline}
           onConfirmedSave={() => {
@@ -68,8 +70,8 @@ export function AppShell() {
           }}
         />
       ) : null}
-      {!historyOpen && destination === "upcoming" ? <UpcomingScreen tasks={tasks} today={today} onChange={updateTask} onComplete={completeWithUndo} onRestore={restoreTask} onDelete={deleteTask} /> : null}
-      {!historyOpen && destination === "inbox" ? (
+      {!historyOpen && !utilityScreen && destination === "upcoming" ? <UpcomingScreen tasks={tasks} today={today} onChange={updateTask} onComplete={completeWithUndo} onRestore={restoreTask} onDelete={deleteTask} /> : null}
+      {!historyOpen && !utilityScreen && destination === "inbox" ? (
         <InboxScreen
           tasks={tasks}
           today={today}
@@ -79,7 +81,7 @@ export function AppShell() {
           onDelete={deleteTask}
         />
       ) : null}
-      {!historyOpen && destination === "plan" ? (
+      {!historyOpen && !utilityScreen && destination === "plan" ? (
         <PlanScreen
           tasks={tasks}
           today={today}
@@ -90,7 +92,7 @@ export function AppShell() {
         />
       ) : null}
       {error ? <p role="alert" className="capture-error">{error}</p> : null}
-      {!historyOpen ? <><button type="button" aria-label="Відкрити меню" className="history-button" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>⋯</button>{menuOpen ? <div className="overflow-menu" role="menu"><button role="menuitem" type="button" onClick={() => { setMenuOpen(false); setHistoryOpen(true); }}>Історія</button><button role="menuitem" type="button">Premium</button><button role="menuitem" type="button">Налаштування</button><button role="menuitem" type="button">Онбординг</button></div> : null}</> : null}
+      {!historyOpen && !utilityScreen ? <><button type="button" aria-label="Відкрити меню" className="history-button" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>⋯</button>{menuOpen ? <div className="overflow-menu" role="menu"><button role="menuitem" type="button" onClick={() => { setMenuOpen(false); setHistoryOpen(true); }}>Історія</button><button role="menuitem" type="button" onClick={() => { setMenuOpen(false); setUtilityScreen("premium"); }}>Premium</button><button role="menuitem" type="button" onClick={() => { setMenuOpen(false); setUtilityScreen("settings"); }}>Налаштування</button><button role="menuitem" type="button" onClick={() => { setMenuOpen(false); setUtilityScreen("onboarding"); }}>Онбординг</button></div> : null}</> : null}
       {undoTaskId ? <div className="undo-toast" role="status">Виконано <button type="button" onClick={async () => { await restoreTask(undoTaskId); setUndoTaskId(null); }}>Скасувати</button></div> : null}
       {destination !== "capture" ? <button type="button" aria-label="Додати задачу" className="add-task-button" onClick={() => setComposerOpen(true)}>+</button> : null}
       {composerOpen ? <TaskComposer today={today} onClose={() => setComposerOpen(false)} onStartVoice={() => { setComposerOpen(false); setDestination("capture"); }} onCreate={async (draft) => { await addDrafts([draft]); requestPersistenceAfterFirstSave(); setComposerOpen(false); setDestination("inbox"); }} /> : null}
