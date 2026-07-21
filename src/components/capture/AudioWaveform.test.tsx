@@ -29,4 +29,7 @@ it("makes ordinary speech visibly taller while keeping silence as dots", () => {
   expect(bars[0]).toHaveStyle("--height: 5.00px");
   expect(bars[1]).toHaveStyle("--height: 14.48px");
   expect(bars[2]).toHaveStyle("--height: 32.00px");
+  expect(bars[0]).toHaveStyle("--scale: 0.1563");
+  expect(bars[1]).toHaveStyle("--scale: 0.4527");
+  expect(bars[2]).toHaveStyle("--scale: 1.0000");
 });
