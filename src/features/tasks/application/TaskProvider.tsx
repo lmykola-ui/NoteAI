@@ -22,6 +22,7 @@ type TaskContextValue = {
   completeTask(id: string): Promise<void>;
   restoreTask(id: string): Promise<void>;
   deleteTask(id: string): Promise<void>;
+  reorderInboxTasks(ids: string[]): Promise<void>;
 };
 
 const TaskContext = createContext<TaskContextValue | null>(null);
@@ -143,6 +144,27 @@ export function TaskProvider({
           pendingMutations.current.push({ type: "delete", id });
         }
         setTasks((current) => current.filter((task) => task.id !== id));
+      },
+      async reorderInboxTasks(ids) {
+        const orderById = new Map(ids.map((id, index) => [id, index]));
+        const taskById = new Map(tasks.map((task) => [task.id, task]));
+        const reordered = ids.flatMap((id) => {
+          const task = taskById.get(id);
+          if (!task) return [];
+
+          return [{
+            ...task,
+            inboxOrder: orderById.get(id) ?? null,
+            updatedAt: new Date().toISOString(),
+          }];
+        });
+
+        await repository.saveMany(reordered);
+        setTasks((current) =>
+          current.map((task) =>
+            reordered.find((updated) => updated.id === task.id) ?? task,
+          ),
+        );
       },
     };
   }, [repository, tasks, loading, error]);

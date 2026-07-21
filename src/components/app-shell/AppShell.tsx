@@ -44,6 +44,7 @@ export function AppShell() {
     updateTask,
     completeTask,
     restoreTask,
+    reorderInboxTasks,
   } = useTasks();
   const today = useLocalToday();
 
@@ -90,6 +91,7 @@ export function AppShell() {
           onComplete={completeWithUndo}
           onRestore={restoreTask}
           onEdit={setEditingTask}
+          onReorder={reorderInboxTasks}
         />
       ) : null}
       {!historyOpen && !utilityScreen && destination === "plan" ? (

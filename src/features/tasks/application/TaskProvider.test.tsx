@@ -158,3 +158,27 @@ it("removes a deleted task from state and the repository", async () => {
   expect(result.current.tasks).toEqual([]);
   expect(saved).toEqual([]);
 });
+
+it("persists a manual Inbox order without changing task details", async () => {
+  const first = makeTask({ id: "first", inboxOrder: 0 });
+  const second = makeTask({ id: "second", inboxOrder: 1 });
+  const { repository, saved } = createRepository([first, second]);
+  const saveMany = vi.fn(repository.saveMany);
+  const { result } = renderTasks({ ...repository, saveMany });
+
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  await act(() => result.current.reorderInboxTasks(["second", "first"]));
+
+  expect(saveMany).toHaveBeenCalledWith([
+    expect.objectContaining({ id: "second", inboxOrder: 0 }),
+    expect.objectContaining({ id: "first", inboxOrder: 1 }),
+  ]);
+  expect(saved.map((task) => [task.id, task.inboxOrder])).toEqual([
+    ["first", 1],
+    ["second", 0],
+  ]);
+  expect(result.current.tasks.map((task) => [task.id, task.inboxOrder])).toEqual([
+    ["first", 1],
+    ["second", 0],
+  ]);
+});

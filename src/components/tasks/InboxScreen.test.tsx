@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { vi } from "vitest";
 import { makeTask } from "../../../tests/fixtures/taskFactory";
 import { InboxScreen } from "./InboxScreen";
@@ -31,6 +31,81 @@ const actions = {
   onRestore: vi.fn(),
   onDelete: vi.fn(),
 };
+
+it("keeps a short task tap for editing", () => {
+  const onEdit = vi.fn();
+  render(
+    <InboxScreen
+      tasks={[undated]}
+      today="2026-07-19"
+      {...actions}
+      onEdit={onEdit}
+    />,
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: `Редагувати «${undated.title}»` }));
+
+  expect(onEdit).toHaveBeenCalledWith(undated);
+});
+
+it("shows an insertion marker after a long press and saves the dropped order", () => {
+  vi.useFakeTimers();
+  const first = makeTask({ id: "first", title: "Перша", inboxOrder: 0 });
+  const second = makeTask({ id: "second", title: "Друга", inboxOrder: 1 });
+  const onReorder = vi.fn();
+  render(
+    <InboxScreen
+      tasks={[first, second]}
+      today="2026-07-19"
+      {...actions}
+      onReorder={onReorder}
+    />,
+  );
+
+  const firstCard = screen.getByLabelText(first.title);
+  const secondCard = screen.getByLabelText(second.title);
+  Object.defineProperty(firstCard, "getBoundingClientRect", {
+    value: () => ({ top: 0, height: 80 }),
+  });
+  Object.defineProperty(secondCard, "getBoundingClientRect", {
+    value: () => ({ top: 100, height: 80 }),
+  });
+
+  fireEvent.pointerDown(firstCard, { pointerId: 1, clientY: 40 });
+  act(() => vi.advanceTimersByTime(350));
+  fireEvent.pointerMove(firstCard, { pointerId: 1, clientY: 190 });
+
+  expect(screen.getByTestId("inbox-drop-marker")).toBeVisible();
+
+  fireEvent.pointerUp(firstCard, { pointerId: 1, clientY: 190 });
+
+  expect(onReorder).toHaveBeenCalledWith([second.id, first.id]);
+  vi.useRealTimers();
+});
+
+it("does not change the order when dragging is cancelled", () => {
+  vi.useFakeTimers();
+  const first = makeTask({ id: "first", title: "Перша", inboxOrder: 0 });
+  const second = makeTask({ id: "second", title: "Друга", inboxOrder: 1 });
+  const onReorder = vi.fn();
+  render(
+    <InboxScreen
+      tasks={[first, second]}
+      today="2026-07-19"
+      {...actions}
+      onReorder={onReorder}
+    />,
+  );
+
+  const firstCard = screen.getByLabelText(first.title);
+  fireEvent.pointerDown(firstCard, { pointerId: 1, clientY: 40 });
+  act(() => vi.advanceTimersByTime(350));
+  fireEvent.pointerMove(firstCard, { pointerId: 1, clientY: 190 });
+  fireEvent.pointerCancel(firstCard, { pointerId: 1 });
+
+  expect(onReorder).not.toHaveBeenCalled();
+  vi.useRealTimers();
+});
 
 it("keeps every active task in one Inbox list", () => {
   render(
