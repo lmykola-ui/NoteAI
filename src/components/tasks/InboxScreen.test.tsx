@@ -107,6 +107,51 @@ it("does not change the order when dragging is cancelled", () => {
   vi.useRealTimers();
 });
 
+it("does not start dragging when a touch becomes a normal vertical scroll", () => {
+  vi.useFakeTimers();
+  const first = makeTask({ id: "first", title: "Перша", inboxOrder: 0 });
+  render(
+    <InboxScreen
+      tasks={[first, makeTask({ id: "second", title: "Друга", inboxOrder: 1 })]}
+      today="2026-07-19"
+      {...actions}
+    />,
+  );
+
+  const firstCard = screen.getByLabelText(first.title);
+  fireEvent.pointerDown(firstCard, { pointerId: 1, clientY: 40 });
+  fireEvent.pointerMove(firstCard, { pointerId: 1, clientY: 66 });
+  act(() => vi.advanceTimersByTime(350));
+
+  expect(screen.queryByTestId("inbox-drop-marker")).not.toBeInTheDocument();
+  vi.useRealTimers();
+});
+
+it("keeps a long-press drag active when the finger releases in a gap between cards", () => {
+  vi.useFakeTimers();
+  const first = makeTask({ id: "first", title: "Перша", inboxOrder: 0 });
+  const second = makeTask({ id: "second", title: "Друга", inboxOrder: 1 });
+  const onReorder = vi.fn();
+  render(
+    <InboxScreen
+      tasks={[first, second]}
+      today="2026-07-19"
+      {...actions}
+      onReorder={onReorder}
+    />,
+  );
+
+  const firstCard = screen.getByLabelText(first.title);
+  const list = firstCard.closest(".task-list");
+  if (!list) throw new Error("Task list is unavailable");
+  fireEvent.pointerDown(firstCard, { pointerId: 1, clientY: 40 });
+  act(() => vi.advanceTimersByTime(350));
+  fireEvent.pointerUp(list, { pointerId: 1, clientY: 190 });
+
+  expect(onReorder).toHaveBeenCalledWith([second.id, first.id]);
+  vi.useRealTimers();
+});
+
 it("keeps every active task in one Inbox list", () => {
   render(
     <InboxScreen
