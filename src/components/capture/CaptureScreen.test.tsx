@@ -35,6 +35,24 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+it("starts with quiet capture copy and a manual text surface", () => {
+  render(
+    <TaskProvider repository={createMemoryTaskRepository()}>
+      <CaptureScreen />
+    </TaskProvider>,
+  );
+
+  expect(screen.getByText("Напишіть або скажіть усе підряд, а ми перетворимо це на задачі.")).toBeVisible();
+  expect(screen.getByRole("heading", { name: "Що в голові?" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Почати запис" })).toBeVisible();
+  expect(screen.queryByTestId("audio-waveform")).not.toBeInTheDocument();
+  expect(screen.getByLabelText("Ваша нотатка")).toHaveAttribute(
+    "placeholder",
+    "Наприклад, купити молоко сьогодні",
+  );
+  expect(screen.getByRole("button", { name: "Розібрати" })).toBeDisabled();
+});
+
 it("shows editable preview and persists only after confirmation", async () => {
   const repository = createMemoryTaskRepository();
   const saved = repository.saved;
