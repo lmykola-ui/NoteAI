@@ -27,6 +27,6 @@ it("makes ordinary speech visibly taller while keeping silence as dots", () => {
 
   const bars = screen.getByTestId("audio-waveform").querySelectorAll("i");
   expect(bars[0]).toHaveStyle("--height: 5.00px");
-  expect(bars[1]).toHaveStyle("--height: 18.72px");
+  expect(bars[1]).toHaveStyle("--height: 14.48px");
   expect(bars[2]).toHaveStyle("--height: 32.00px");
 });

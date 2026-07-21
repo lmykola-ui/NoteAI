@@ -7,7 +7,7 @@ type AudioWaveformProps = {
 
 function waveformHeight(level: number) {
   const quietThreshold = 0.06;
-  const normalized = Math.max(0, Math.min(1, (level - quietThreshold) / 0.34));
+  const normalized = Math.max(0, Math.min(1, (level - quietThreshold) / 0.6));
   return `${(5 + Math.pow(normalized, 0.65) * 27).toFixed(2)}px`;
 }
 

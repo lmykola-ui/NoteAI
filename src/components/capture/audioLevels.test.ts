@@ -26,3 +26,9 @@ it("maps louder speech to taller clamped bars", () => {
   expect(Math.max(...loud)).toBeGreaterThan(Math.max(...speech));
   expect(loud.every((level) => level >= 0 && level <= 1)).toBe(true);
 });
+
+it("eases a sudden loud sound instead of jumping to full height", () => {
+  const loud = mapVoiceLevels(samplesWithDeviation(18), previous);
+
+  expect(Math.max(...loud)).toBeLessThanOrEqual(0.3);
+});

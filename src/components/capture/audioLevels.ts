@@ -24,7 +24,7 @@ export function mapVoiceLevels(
       1,
       MIN_LEVEL + voiceLevel * centerWeight * 0.94,
     );
-    const smoothing = target > previous ? 0.56 : 0.2;
+    const smoothing = target > previous ? 0.24 : 0.12;
     return Math.max(
       0,
       Math.min(1, previous + (target - previous) * smoothing),
