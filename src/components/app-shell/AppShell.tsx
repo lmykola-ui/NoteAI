@@ -27,6 +27,7 @@ export function AppShell() {
   const [destination, setDestination] = useState<Destination>("inbox");
   const [composerOpen, setComposerOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [undoTaskId, setUndoTaskId] = useState<string | null>(null);
   const isOnline = useOnlineStatus();
   const persistenceRequested = useRef(false);
@@ -89,7 +90,7 @@ export function AppShell() {
         />
       ) : null}
       {error ? <p role="alert" className="capture-error">{error}</p> : null}
-      {!historyOpen ? <button type="button" aria-label="Відкрити історію" className="history-button" onClick={() => setHistoryOpen(true)}>⋯</button> : null}
+      {!historyOpen ? <><button type="button" aria-label="Відкрити меню" className="history-button" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>⋯</button>{menuOpen ? <div className="overflow-menu" role="menu"><button role="menuitem" type="button" onClick={() => { setMenuOpen(false); setHistoryOpen(true); }}>Історія</button><button role="menuitem" type="button">Premium</button><button role="menuitem" type="button">Налаштування</button><button role="menuitem" type="button">Онбординг</button></div> : null}</> : null}
       {undoTaskId ? <div className="undo-toast" role="status">Виконано <button type="button" onClick={async () => { await restoreTask(undoTaskId); setUndoTaskId(null); }}>Скасувати</button></div> : null}
       {destination !== "capture" ? <button type="button" aria-label="Додати задачу" className="add-task-button" onClick={() => setComposerOpen(true)}>+</button> : null}
       {composerOpen ? <TaskComposer today={today} onClose={() => setComposerOpen(false)} onStartVoice={() => { setComposerOpen(false); setDestination("capture"); }} onCreate={async (draft) => { await addDrafts([draft]); requestPersistenceAfterFirstSave(); setComposerOpen(false); setDestination("inbox"); }} /> : null}

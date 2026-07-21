@@ -83,6 +83,19 @@ it("opens Inbox and switches between exactly three destinations", async () => {
   expect(screen.getByRole("heading", { name: "Заплановані" })).toBeVisible();
 });
 
+it("opens an overflow menu before showing history", async () => {
+  const user = userEvent.setup();
+  render(<TaskProvider repository={createMemoryTaskRepository()}><AppShell /></TaskProvider>);
+  await user.click(screen.getByRole("button", { name: "Відкрити меню" }));
+  expect(screen.getByRole("menu")).toBeVisible();
+  expect(screen.getByRole("menuitem", { name: "Історія" })).toBeVisible();
+  expect(screen.getByRole("menuitem", { name: "Premium" })).toBeVisible();
+  expect(screen.getByRole("menuitem", { name: "Налаштування" })).toBeVisible();
+  expect(screen.getByRole("menuitem", { name: "Онбординг" })).toBeVisible();
+  await user.click(screen.getByRole("menuitem", { name: "Історія" }));
+  expect(screen.getByRole("heading", { name: "Історія" })).toBeVisible();
+});
+
 it("announces local task hydration until the repository load settles", async () => {
   let resolveList!: () => void;
   const repository = createMemoryTaskRepository();
