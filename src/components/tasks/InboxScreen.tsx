@@ -5,6 +5,7 @@ import type { Task } from "@/features/tasks/domain/task";
 import { TaskCard } from "./TaskCard";
 
 const LONG_PRESS_MS = 350;
+const SCROLL_MOVEMENT_THRESHOLD = 12;
 
 type InboxScreenProps = {
   tasks: Task[];
@@ -31,6 +32,8 @@ export function InboxScreen({ tasks, today, onReorder, ...actions }: InboxScreen
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draggingTaskIdRef = useRef<string | null>(null);
   const dragStartY = useRef(0);
+  const pointerStart = useRef<{ id: number; y: number } | null>(null);
+  const pointerTarget = useRef<HTMLDivElement | null>(null);
   const suppressNextClick = useRef(false);
   const taskElements = useRef(new Map<string, HTMLDivElement>());
   const activeTasks = tasks
@@ -43,6 +46,14 @@ export function InboxScreen({ tasks, today, onReorder, ...actions }: InboxScreen
     },
     [],
   );
+
+  useEffect(() => {
+    if (!draggingTaskId) return;
+
+    const preventTouchScroll = (event: TouchEvent) => event.preventDefault();
+    window.addEventListener("touchmove", preventTouchScroll, { passive: false });
+    return () => window.removeEventListener("touchmove", preventTouchScroll);
+  }, [draggingTaskId]);
 
   function clearLongPressTimer() {
     if (longPressTimer.current) clearTimeout(longPressTimer.current);
@@ -65,6 +76,9 @@ export function InboxScreen({ tasks, today, onReorder, ...actions }: InboxScreen
     if (event.pointerType === "mouse" && event.button !== 0) return;
     if ((event.target as Element).closest(".task-completion")) return;
 
+    pointerStart.current = { id: event.pointerId, y: event.clientY };
+    pointerTarget.current = event.currentTarget;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
     longPressTimer.current = setTimeout(() => {
       draggingTaskIdRef.current = task.id;
       dragStartY.current = event.clientY;
@@ -77,7 +91,13 @@ export function InboxScreen({ tasks, today, onReorder, ...actions }: InboxScreen
 
   function onPointerMove(event: PointerEvent<HTMLDivElement>) {
     const draggedId = draggingTaskIdRef.current;
-    if (!draggedId) return;
+    if (!draggedId) {
+      const start = pointerStart.current;
+      if (start?.id === event.pointerId && Math.abs(event.clientY - start.y) > SCROLL_MOVEMENT_THRESHOLD) {
+        clearLongPressTimer();
+      }
+      return;
+    }
     setDragOffsetY(event.clientY - dragStartY.current);
     setInsertionIndex(targetIndex(event.clientY, draggedId));
   }
@@ -85,7 +105,10 @@ export function InboxScreen({ tasks, today, onReorder, ...actions }: InboxScreen
   function stopDragging(event?: PointerEvent<HTMLDivElement>) {
     clearLongPressTimer();
     const draggedId = draggingTaskIdRef.current;
-    if (!draggedId) return;
+    if (!draggedId) {
+      pointerStart.current = null;
+      return;
+    }
 
     const nextIndex = event ? targetIndex(event.clientY, draggedId) : insertionIndex;
     const remaining = activeTasks.filter((task) => task.id !== draggedId);
@@ -97,6 +120,12 @@ export function InboxScreen({ tasks, today, onReorder, ...actions }: InboxScreen
     const changed = ids.some((id, index) => id !== activeTasks[index]?.id);
 
     draggingTaskIdRef.current = null;
+    pointerStart.current = null;
+    const capturedElement = pointerTarget.current;
+    if (event && capturedElement?.hasPointerCapture?.(event.pointerId)) {
+      capturedElement.releasePointerCapture?.(event.pointerId);
+    }
+    pointerTarget.current = null;
     setDraggingTaskId(null);
     setInsertionIndex(null);
     setDragOffsetY(0);
@@ -106,6 +135,8 @@ export function InboxScreen({ tasks, today, onReorder, ...actions }: InboxScreen
   function cancelDragging() {
     clearLongPressTimer();
     draggingTaskIdRef.current = null;
+    pointerStart.current = null;
+    pointerTarget.current = null;
     setDraggingTaskId(null);
     setInsertionIndex(null);
     setDragOffsetY(0);
@@ -119,7 +150,12 @@ export function InboxScreen({ tasks, today, onReorder, ...actions }: InboxScreen
     <section className="task-screen" aria-label="Вхідні">
       <h1>Вхідні</h1>
       {activeTasks.length ? (
-        <div className="task-list">
+        <div
+          className="task-list"
+          onPointerMove={onPointerMove}
+          onPointerUp={stopDragging}
+          onPointerCancel={cancelDragging}
+        >
           {activeTasks.map((task) => (
             <Fragment key={task.id}>
               {draggingTaskId && remainingTasks[insertionIndex ?? remainingTasks.length]?.id === task.id ? (
