@@ -110,10 +110,81 @@ it("shows the focused listening controls while a note is being recorded", async 
 
   expect(await screen.findByText("Слухаю…")).toBeVisible();
   expect(screen.getByRole("img", { name: "Рівень звуку" })).toBeVisible();
-  expect(screen.getAllByTestId("voice-level-bar")).toHaveLength(11);
+  expect(screen.getByTestId("audio-waveform").querySelectorAll("i")).toHaveLength(13);
   expect(document.querySelector(".voice-capture-pulse")).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Пауза запису" })).toBeVisible();
   expect(screen.getByRole("button", { name: "Зупинити запис" })).toHaveClass("voice-stop-button");
+});
+
+it("renders live waveform levels from the microphone stream", async () => {
+  microphone();
+  const analyser = {
+    fftSize: 0,
+    smoothingTimeConstant: 0,
+    disconnect: vi.fn(),
+    getByteTimeDomainData: vi.fn(),
+  };
+  const source = { connect: vi.fn(), disconnect: vi.fn() };
+  const AudioContextMock = vi.fn(function MockAudioContext() {
+    return {
+      state: "running",
+      close: vi.fn().mockResolvedValue(undefined),
+      createAnalyser: vi.fn().mockReturnValue(analyser),
+      createMediaStreamSource: vi.fn().mockReturnValue(source),
+    };
+  });
+  vi.stubGlobal("AudioContext", AudioContextMock);
+  let sampleFrame: FrameRequestCallback | undefined;
+  vi.stubGlobal(
+    "requestAnimationFrame",
+    vi.fn((callback: FrameRequestCallback) => {
+      sampleFrame = callback;
+      return 1;
+    }),
+  );
+
+  render(<VoiceRecorder onTranscript={vi.fn()} />);
+  await userEvent.click(screen.getByRole("button", { name: "Почати запис" }));
+
+  expect(AudioContextMock).toHaveBeenCalledOnce();
+  expect(sampleFrame).toBeDefined();
+  analyser.getByteTimeDomainData.mockImplementation((samples: Uint8Array) => {
+    samples.fill(150);
+  });
+  act(() => sampleFrame?.(0));
+  expect(analyser.getByteTimeDomainData).toHaveBeenCalled();
+  expect(screen.getByTestId("audio-waveform")).toBeVisible();
+});
+
+it("resumes a suspended audio context before sampling microphone levels", async () => {
+  microphone();
+  const resume = vi.fn().mockResolvedValue(undefined);
+  const analyser = {
+    fftSize: 0,
+    smoothingTimeConstant: 0,
+    disconnect: vi.fn(),
+    getByteTimeDomainData: vi.fn(),
+  };
+  const source = { connect: vi.fn(), disconnect: vi.fn() };
+  vi.stubGlobal(
+    "AudioContext",
+    vi.fn(function MockAudioContext() {
+      return {
+        state: "suspended",
+        resume,
+        close: vi.fn().mockResolvedValue(undefined),
+        createAnalyser: vi.fn().mockReturnValue(analyser),
+        createMediaStreamSource: vi.fn().mockReturnValue(source),
+      };
+    }),
+  );
+  vi.stubGlobal("requestAnimationFrame", vi.fn().mockReturnValue(1));
+
+  render(<VoiceRecorder onTranscript={vi.fn()} />);
+  await userEvent.click(screen.getByRole("button", { name: "Почати запис" }));
+
+  expect(resume).toHaveBeenCalledOnce();
+  await waitFor(() => expect(source.connect).toHaveBeenCalledWith(analyser));
 });
 
 it("starts listening automatically for the voice-first flow", async () => {

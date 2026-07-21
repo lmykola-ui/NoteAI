@@ -9,6 +9,8 @@ import {
   isOnlineNow,
   subscribeToOnlineStatus,
 } from "@/lib/connectivity";
+import { AudioWaveform } from "./AudioWaveform";
+import { mapVoiceLevels } from "./audioLevels";
 
 type RecorderState =
   | "idle"
@@ -27,7 +29,8 @@ type VoiceRecorderProps = {
 
 const SERVER_AUDIO_DURATION_CAP_MS = 60_000;
 const AUTO_STOP_RECORDING_MS = SERVER_AUDIO_DURATION_CAP_MS - 1_000;
-const VOICE_LEVELS = [28, 40, 52, 68, 82, 100, 82, 68, 52, 40, 28];
+const WAVEFORM_BAR_COUNT = 13;
+const QUIET_LEVELS = Array.from({ length: WAVEFORM_BAR_COUNT }, () => 0.06);
 // Keep one second of headroom because browser timers can run late while the
 // server verifies the recorded duration against its strict 60-second cap.
 
@@ -40,6 +43,10 @@ type RecordingSession = {
   discard: boolean;
   finished: boolean;
   failed: boolean;
+  audioContext: AudioContext | null;
+  audioSource: MediaStreamAudioSourceNode | null;
+  analyser: AnalyserNode | null;
+  animationFrame: number | null;
 };
 
 function clearStopTimer(session: RecordingSession) {
@@ -53,6 +60,22 @@ function stopTracks(session: RecordingSession) {
   const stream = session.stream;
   session.stream = null;
   stream?.getTracks().forEach((track) => track.stop());
+}
+
+function stopAudioAnalysis(session: RecordingSession) {
+  if (session.animationFrame !== null) {
+    cancelAnimationFrame(session.animationFrame);
+    session.animationFrame = null;
+  }
+  session.audioSource?.disconnect();
+  session.analyser?.disconnect();
+  session.audioSource = null;
+  session.analyser = null;
+  const audioContext = session.audioContext;
+  session.audioContext = null;
+  if (audioContext && audioContext.state !== "closed") {
+    void audioContext.close().catch(() => undefined);
+  }
 }
 
 function isPermissionDenied(error: unknown) {
@@ -71,6 +94,7 @@ export function VoiceRecorder({
   autoStart = false,
 }: VoiceRecorderProps) {
   const [state, setState] = useState<RecorderState>("idle");
+  const [levels, setLevels] = useState(QUIET_LEVELS);
   const mountedRef = useRef(true);
   const generationRef = useRef(0);
   const activeSessionRef = useRef<RecordingSession | null>(null);
@@ -82,11 +106,13 @@ export function VoiceRecorder({
     session.discard = true;
     clearStopTimer(session);
     session.chunks = [];
+    stopAudioAnalysis(session);
     stopTracks(session);
     if (activeSessionRef.current === session) activeSessionRef.current = null;
     const recorder = session.recorder;
     if (recorder && recorder.state !== "inactive") recorder.stop();
     if (mountedRef.current && generationRef.current === session.generation) {
+      setLevels(QUIET_LEVELS);
       setState("idle");
     }
   }, []);
@@ -104,7 +130,11 @@ export function VoiceRecorder({
     if (session.finished) return;
     session.finished = true;
     clearStopTimer(session);
+    stopAudioAnalysis(session);
     stopTracks(session);
+    if (mountedRef.current && generationRef.current === session.generation) {
+      setLevels(QUIET_LEVELS);
+    }
     if (activeSessionRef.current === session) activeSessionRef.current = null;
 
     const chunks = session.chunks;
@@ -155,8 +185,61 @@ export function VoiceRecorder({
     }
   }, [onTranscript]);
 
+  const startAudioAnalysis = useCallback((
+    session: RecordingSession,
+    stream: MediaStream,
+    recorder: MediaRecorder,
+  ) => {
+    const AudioContextClass = window.AudioContext;
+    if (!AudioContextClass) return;
+
+    try {
+      const audioContext = new AudioContextClass();
+      session.audioContext = audioContext;
+      const beginSampling = () => {
+        if (
+          !mountedRef.current ||
+          activeSessionRef.current !== session ||
+          session.discard
+        ) {
+          return;
+        }
+        const analyser = audioContext.createAnalyser();
+        const source = audioContext.createMediaStreamSource(stream);
+        analyser.fftSize = 64;
+        analyser.smoothingTimeConstant = 0.72;
+        source.connect(analyser);
+        session.analyser = analyser;
+        session.audioSource = source;
+        const samples = new Uint8Array(analyser.fftSize);
+        const sampleLevels = () => {
+          if (
+            !mountedRef.current ||
+            activeSessionRef.current !== session ||
+            session.discard ||
+            recorder.state === "inactive"
+          ) {
+            return;
+          }
+          analyser.getByteTimeDomainData(samples);
+          setLevels((current) => mapVoiceLevels(samples, current));
+          session.animationFrame = requestAnimationFrame(sampleLevels);
+        };
+        session.animationFrame = requestAnimationFrame(sampleLevels);
+      };
+      if (audioContext.state === "suspended") {
+        void audioContext.resume().then(beginSampling).catch(() => stopAudioAnalysis(session));
+        return;
+      }
+      beginSampling();
+    } catch {
+      stopAudioAnalysis(session);
+    }
+  }, []);
+
   const startRecording = useCallback(async () => {
     if (disabled || !isOnlineNow()) return;
+    setLevels(QUIET_LEVELS);
     setState("requesting");
     const session: RecordingSession = {
       generation: generationRef.current + 1,
@@ -167,6 +250,10 @@ export function VoiceRecorder({
       discard: false,
       finished: false,
       failed: false,
+      audioContext: null,
+      audioSource: null,
+      analyser: null,
+      animationFrame: null,
     };
     generationRef.current = session.generation;
     activeSessionRef.current = session;
@@ -204,6 +291,7 @@ export function VoiceRecorder({
       }
       const recorder = new MediaRecorder(stream);
       session.recorder = recorder;
+      startAudioAnalysis(session, stream, recorder);
 
       recorder.ondataavailable = (event) => {
         if (!session.discard && !session.finished && event.data.size > 0) {
@@ -217,6 +305,7 @@ export function VoiceRecorder({
         session.discard = true;
         session.failed = true;
         clearStopTimer(session);
+        stopAudioAnalysis(session);
         stopTracks(session);
         session.chunks = [];
         if (mountedRef.current && activeSessionRef.current === session) {
@@ -240,6 +329,7 @@ export function VoiceRecorder({
     } catch (error) {
       session.discard = true;
       clearStopTimer(session);
+      stopAudioAnalysis(session);
       stopTracks(session);
       session.chunks = [];
       session.recorder = null;
@@ -250,7 +340,7 @@ export function VoiceRecorder({
         setState(isPermissionDenied(error) ? "denied" : "error");
       }
     }
-  }, [disabled, finishRecording]);
+  }, [disabled, finishRecording, startAudioAnalysis]);
 
   function stopRecording() {
     const recorder = activeSessionRef.current?.recorder;
@@ -315,6 +405,7 @@ export function VoiceRecorder({
         recorder.onstop = null;
         if (recorder.state !== "inactive") recorder.stop();
       }
+      stopAudioAnalysis(session);
       stopTracks(session);
       session.chunks = [];
     };
@@ -325,14 +416,7 @@ export function VoiceRecorder({
       <section className="voice-listening" aria-label={state === "recording" ? "Триває запис" : "Запис на паузі"}>
         <div className="voice-listening-status">
           <span className="voice-wave" role="img" aria-label="Рівень звуку">
-            {VOICE_LEVELS.map((height, index) => (
-              <span
-                key={index}
-                className="voice-level-bar"
-                data-testid="voice-level-bar"
-                style={{ "--voice-level-height": `${height}%`, "--voice-level-delay": `${index * 70}ms` } as React.CSSProperties}
-              />
-            ))}
+            <AudioWaveform levels={levels} />
           </span>
           <p className="voice-listening-title">{state === "recording" ? "Слухаю…" : "На паузі"}</p>
         </div>
