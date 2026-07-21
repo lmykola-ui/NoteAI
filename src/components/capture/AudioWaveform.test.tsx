@@ -21,3 +21,12 @@ it("marks a fallback waveform and staggers its bars", () => {
   expect(bars[0]).toHaveStyle("--bar-index: 0");
   expect(bars[1]).toHaveStyle("--bar-index: 1");
 });
+
+it("makes ordinary speech visibly taller while keeping silence as dots", () => {
+  render(<AudioWaveform levels={[0.06, 0.18, 1]} />);
+
+  const bars = screen.getByTestId("audio-waveform").querySelectorAll("i");
+  expect(bars[0]).toHaveStyle("--height: 5.00px");
+  expect(bars[1]).toHaveStyle("--height: 18.72px");
+  expect(bars[2]).toHaveStyle("--height: 32.00px");
+});

@@ -5,6 +5,12 @@ type AudioWaveformProps = {
   fallbackActive?: boolean;
 };
 
+function waveformHeight(level: number) {
+  const quietThreshold = 0.06;
+  const normalized = Math.max(0, Math.min(1, (level - quietThreshold) / 0.34));
+  return `${(5 + Math.pow(normalized, 0.65) * 27).toFixed(2)}px`;
+}
+
 export function AudioWaveform({
   levels,
   fallbackActive = false,
@@ -26,6 +32,7 @@ export function AudioWaveform({
             style={
               {
                 "--level": String(Math.max(0, Math.min(1, level))),
+                "--height": waveformHeight(level),
                 "--bar-index": index,
                 "--fallback-delay": `${index * -67}ms`,
                 "--fallback-duration": `${760 + (index % 4) * 70}ms`,
