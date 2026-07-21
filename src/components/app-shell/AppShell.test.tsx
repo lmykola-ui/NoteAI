@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { TaskProvider } from "@/features/tasks/application/TaskProvider";
 import type { TaskRepository } from "@/features/tasks/infrastructure/TaskRepository";
 import { createMemoryTaskRepository } from "../../../tests/fixtures/memoryTaskRepository";
+import { makeTask } from "../../../tests/fixtures/taskFactory";
 import { AppShell } from "./AppShell";
 
 const shellMocks = vi.hoisted(() => ({
@@ -53,6 +54,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -71,6 +73,10 @@ it("opens Inbox and switches between exactly three destinations", async () => {
   expect(
     screen.getAllByRole("button", { name: /^(Вхідні|Сьогодні|Заплановані)$/ }),
   ).toHaveLength(3);
+  expect(screen.getAllByTestId("nav-icon")).toHaveLength(3);
+  expect(screen.getAllByTestId("nav-icon").every((icon) => icon.querySelector("svg"))).toBe(true);
+  expect(screen.getByRole("button", { name: "Сьогодні" }).querySelector("svg")).toHaveClass("lucide-sun");
+  expect(screen.getByRole("button", { name: "Заплановані" }).querySelector("svg")).toHaveClass("lucide-calendar-range");
 
   await user.click(screen.getByRole("button", { name: "Сьогодні" }));
   expect(screen.getByRole("heading", { name: "Сьогодні" })).toBeVisible();
@@ -94,6 +100,34 @@ it("opens an overflow menu before showing history", async () => {
   expect(screen.getByRole("menuitem", { name: "Онбординг" })).toBeVisible();
   await user.click(screen.getByRole("menuitem", { name: "Історія" }));
   expect(screen.getByRole("heading", { name: "Історія" })).toBeVisible();
+});
+
+it("edits a task from its card in the shared composer", async () => {
+  const user = userEvent.setup();
+  const repository = createMemoryTaskRepository([makeTask({ title: "Підготувати бриф", description: "До зустрічі" })]);
+  render(<TaskProvider repository={repository}><AppShell /></TaskProvider>);
+
+  await user.click(await screen.findByRole("button", { name: "Редагувати «Підготувати бриф»" }));
+  expect(screen.getByRole("dialog", { name: "Редагувати задачу" })).toBeVisible();
+  expect(screen.getByLabelText("Опис задачі")).toHaveValue("До зустрічі");
+  await user.clear(screen.getByLabelText("Що потрібно зробити?"));
+  await user.type(screen.getByLabelText("Що потрібно зробити?"), "Оновити бриф");
+  await user.click(screen.getByRole("button", { name: "Зберегти зміни" }));
+
+  expect(await screen.findByRole("button", { name: "Редагувати «Оновити бриф»" })).toBeVisible();
+});
+
+it("dismisses the completion undo message after three seconds", async () => {
+  const repository = createMemoryTaskRepository([makeTask()]);
+  render(<TaskProvider repository={repository}><AppShell /></TaskProvider>);
+
+  const completionButton = await screen.findByRole("button", { name: /Позначити.*виконаною/ });
+  vi.useFakeTimers();
+  await act(async () => { fireEvent.click(completionButton); await Promise.resolve(); });
+  expect(screen.getByRole("status", { name: "Задача виконана" })).toBeVisible();
+
+  act(() => { vi.advanceTimersByTime(3_000); });
+  expect(screen.queryByRole("status", { name: "Задача виконана" })).not.toBeInTheDocument();
 });
 
 it("announces local task hydration until the repository load settles", async () => {
@@ -135,9 +169,6 @@ it("never starts an AI request from a same-tick offline event", async () => {
 
   fireEvent.click(screen.getByRole("button", { name: "Додати задачу" }));
   fireEvent.click(screen.getByRole("button", { name: "Записати голосом" }));
-  fireEvent.change(screen.getByLabelText("Ваша нотатка"), {
-    target: { value: "Купити молоко" },
-  });
 
   Object.defineProperty(navigator, "onLine", {
     configurable: true,
@@ -145,11 +176,10 @@ it("never starts an AI request from a same-tick offline event", async () => {
   });
   act(() => {
     window.dispatchEvent(new Event("offline"));
-    fireEvent.click(screen.getByRole("button", { name: "Розібрати" }));
   });
 
   expect(fetchMock).not.toHaveBeenCalled();
-  expect(screen.getByRole("button", { name: "Розібрати" })).toBeDisabled();
+  expect(screen.queryByRole("button", { name: "Розібрати" })).not.toBeInTheDocument();
 });
 
 it("requests persistence once, only after the first successful confirmation resolves", async () => {
@@ -177,10 +207,8 @@ it("requests persistence once, only after the first successful confirmation reso
 
   expect(shellMocks.requestPersistence).not.toHaveBeenCalled();
   await user.click(screen.getByRole("button", { name: "Додати задачу" }));
-  await user.click(screen.getByRole("button", { name: "Записати голосом" }));
-  await user.type(screen.getByLabelText("Ваша нотатка"), "Перша нотатка");
-  await user.click(screen.getByRole("button", { name: "Розібрати" }));
-  await user.click(await screen.findByRole("button", { name: "Додати все" }));
+  await user.type(screen.getByLabelText("Що потрібно зробити?"), "Перша нотатка");
+  await user.click(screen.getByRole("button", { name: "Зберегти задачу" }));
 
   expect(saveMany).toHaveBeenCalledOnce();
   expect(shellMocks.requestPersistence).not.toHaveBeenCalled();
@@ -191,10 +219,8 @@ it("requests persistence once, only after the first successful confirmation reso
   );
 
   await user.click(screen.getByRole("button", { name: "Додати задачу" }));
-  await user.click(screen.getByRole("button", { name: "Записати голосом" }));
-  await user.type(screen.getByLabelText("Ваша нотатка"), "Друга нотатка");
-  await user.click(screen.getByRole("button", { name: "Розібрати" }));
-  await user.click(await screen.findByRole("button", { name: "Додати все" }));
+  await user.type(screen.getByLabelText("Що потрібно зробити?"), "Друга нотатка");
+  await user.click(screen.getByRole("button", { name: "Зберегти задачу" }));
   await waitFor(() => expect(saveMany).toHaveBeenCalledTimes(2));
 
   expect(shellMocks.requestPersistence).toHaveBeenCalledOnce();

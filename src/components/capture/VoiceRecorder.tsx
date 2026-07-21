@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Check, Pause, Play } from "lucide-react";
 import { requestTranscription } from "@/features/capture/application/transcribeClient";
 import { trackSafeEvent } from "@/lib/analytics";
 import {
@@ -13,6 +14,7 @@ type RecorderState =
   | "idle"
   | "requesting"
   | "recording"
+  | "paused"
   | "transcribing"
   | "denied"
   | "error";
@@ -20,10 +22,12 @@ type RecorderState =
 type VoiceRecorderProps = {
   onTranscript: (text: string) => void | Promise<void>;
   disabled?: boolean;
+  autoStart?: boolean;
 };
 
 const SERVER_AUDIO_DURATION_CAP_MS = 60_000;
 const AUTO_STOP_RECORDING_MS = SERVER_AUDIO_DURATION_CAP_MS - 1_000;
+const VOICE_LEVELS = [28, 40, 52, 68, 82, 100, 82, 68, 52, 40, 28];
 // Keep one second of headroom because browser timers can run late while the
 // server verifies the recorded duration against its strict 60-second cap.
 
@@ -64,12 +68,15 @@ function isPermissionDenied(error: unknown) {
 export function VoiceRecorder({
   onTranscript,
   disabled = false,
+  autoStart = false,
 }: VoiceRecorderProps) {
   const [state, setState] = useState<RecorderState>("idle");
   const mountedRef = useRef(true);
   const generationRef = useRef(0);
   const activeSessionRef = useRef<RecordingSession | null>(null);
   const disabledRef = useRef(disabled);
+  const autoStartAttemptedRef = useRef(false);
+  const startRecordingRef = useRef<() => Promise<void>>(async () => undefined);
 
   const discardSession = useCallback((session: RecordingSession) => {
     session.discard = true;
@@ -93,7 +100,7 @@ export function VoiceRecorder({
     discardSession(session);
   }, [disabled, discardSession]);
 
-  async function finishRecording(session: RecordingSession) {
+  const finishRecording = useCallback(async (session: RecordingSession) => {
     if (session.finished) return;
     session.finished = true;
     clearStopTimer(session);
@@ -146,9 +153,9 @@ export function VoiceRecorder({
     } finally {
       blob = null;
     }
-  }
+  }, [onTranscript]);
 
-  async function startRecording() {
+  const startRecording = useCallback(async () => {
     if (disabled || !isOnlineNow()) return;
     setState("requesting");
     const session: RecordingSession = {
@@ -243,11 +250,25 @@ export function VoiceRecorder({
         setState(isPermissionDenied(error) ? "denied" : "error");
       }
     }
-  }
+  }, [disabled, finishRecording]);
 
   function stopRecording() {
     const recorder = activeSessionRef.current?.recorder;
-    if (recorder?.state === "recording") recorder.stop();
+    if (recorder && recorder.state !== "inactive") recorder.stop();
+  }
+
+  function togglePause() {
+    const recorder = activeSessionRef.current?.recorder;
+    if (!recorder) return;
+    if (state === "recording" && recorder.state === "recording") {
+      recorder.pause();
+      setState("paused");
+      return;
+    }
+    if (state === "paused" && recorder.state === "paused") {
+      recorder.resume();
+      setState("recording");
+    }
   }
 
   useLayoutEffect(() => {
@@ -258,6 +279,24 @@ export function VoiceRecorder({
       discardSession(session);
     });
   }, [discardSession]);
+
+  useEffect(() => {
+    startRecordingRef.current = startRecording;
+  }, [startRecording]);
+
+  useEffect(() => {
+    if (
+      !autoStart ||
+      disabled ||
+      state !== "idle" ||
+      autoStartAttemptedRef.current
+    ) {
+      return;
+    }
+
+    autoStartAttemptedRef.current = true;
+    void startRecordingRef.current();
+  }, [autoStart, disabled, state]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -281,11 +320,28 @@ export function VoiceRecorder({
     };
   }, []);
 
-  if (state === "recording") {
+  if (state === "recording" || state === "paused") {
     return (
-      <button type="button" className="secondary-button" onClick={stopRecording}>
-        Зупинити запис
-      </button>
+      <section className="voice-listening" aria-label={state === "recording" ? "Триває запис" : "Запис на паузі"}>
+        <div className="voice-listening-status">
+          <span className="voice-wave" role="img" aria-label="Рівень звуку">
+            {VOICE_LEVELS.map((height, index) => (
+              <span
+                key={index}
+                className="voice-level-bar"
+                data-testid="voice-level-bar"
+                style={{ "--voice-level-height": `${height}%`, "--voice-level-delay": `${index * 70}ms` } as React.CSSProperties}
+              />
+            ))}
+          </span>
+          <p className="voice-listening-title">{state === "recording" ? "Слухаю…" : "На паузі"}</p>
+        </div>
+        <p className="voice-listening-hint">{state === "recording" ? "Скажіть усе, що потрібно зробити" : "Продовжте, коли будете готові"}</p>
+        <div className="voice-listening-controls">
+          <button type="button" className="voice-pause-button" aria-label={state === "recording" ? "Пауза запису" : "Продовжити запис"} onClick={togglePause}>{state === "recording" ? <Pause size={21} fill="currentColor" aria-hidden="true" /> : <Play size={21} fill="currentColor" aria-hidden="true" />}</button>
+          <button type="button" className="voice-stop-button" aria-label="Зупинити запис" onClick={stopRecording}><Check size={24} strokeWidth={2.8} aria-hidden="true" /></button>
+        </div>
+      </section>
     );
   }
 

@@ -48,3 +48,21 @@ it("caches only the root shell and explicit Next static assets", async () => {
     expect.anything(),
   );
 });
+
+it("removes a stale offline worker and its shell cache during development", async () => {
+  const unregister = vi.fn().mockResolvedValue(true);
+  const deleteCache = vi.fn().mockResolvedValue(true);
+  vi.stubEnv("NODE_ENV", "development");
+  vi.stubGlobal("caches", { delete: deleteCache });
+  Object.defineProperty(navigator, "serviceWorker", {
+    configurable: true,
+    value: {
+      getRegistrations: vi.fn().mockResolvedValue([{ unregister }]),
+    },
+  });
+
+  render(<OfflineInitializer />);
+
+  await waitFor(() => expect(unregister).toHaveBeenCalledOnce());
+  expect(deleteCache).toHaveBeenCalledWith("noteai-shell-v1");
+});

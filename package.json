@@ -33,6 +33,7 @@
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
     "idb": "^8.0.3",
+    "lucide-react": "^1.25.0",
     "music-metadata": "^11.14.0",
     "next": "^16.2.10",
     "openai": "^6.48.0",

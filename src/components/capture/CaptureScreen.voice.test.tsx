@@ -48,10 +48,10 @@ class MockMediaRecorder {
   }
 }
 
-function renderCapture() {
+function renderCapture(voiceFirst = false) {
   return render(
     <TaskProvider repository={createMemoryTaskRepository()}>
-      <CaptureScreen />
+      <CaptureScreen voiceFirst={voiceFirst} />
     </TaskProvider>,
   );
 }
@@ -144,6 +144,49 @@ it("puts an editable transcript in the shared textarea and waits for explicit vo
   });
 
   expect(await screen.findByDisplayValue("Купити молоко")).toBeVisible();
+  expect(track.stop).toHaveBeenCalledOnce();
+});
+
+it("automatically analyzes a voice-first recording before showing editable tasks", async () => {
+  const track = { stop: vi.fn() } as unknown as MediaStreamTrack;
+  vi.stubGlobal("navigator", {
+    mediaDevices: {
+      getUserMedia: vi.fn().mockResolvedValue({
+        getTracks: vi.fn().mockReturnValue([track]),
+      } as unknown as MediaStream),
+    },
+  });
+  vi.stubGlobal("MediaRecorder", MockMediaRecorder);
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          tasks: [
+            {
+              title: "Надіслати бриф клієнту",
+              scheduledDate: "2026-07-21",
+              scheduledTime: "11:00",
+              status: "active",
+              priority: "high",
+              inputMethod: "voice",
+            },
+          ],
+          clarification: null,
+        }),
+        { status: 200 },
+      ),
+    ),
+  );
+  captureMocks.transcribe.mockResolvedValue("Надіслати бриф клієнту сьогодні о 11");
+  renderCapture(true);
+
+  expect(await screen.findByText("Слухаю…")).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "Зупинити запис" }));
+
+  expect(await screen.findByRole("heading", { name: "Перевірте задачі" })).toBeVisible();
+  expect(screen.getByDisplayValue("Надіслати бриф клієнту")).toBeVisible();
+  expect(vi.mocked(fetch)).toHaveBeenCalledOnce();
   expect(track.stop).toHaveBeenCalledOnce();
 });
 

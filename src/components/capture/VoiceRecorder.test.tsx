@@ -102,6 +102,29 @@ it("reports denied microphone permission without disabling text capture", async 
   expect(screen.getByRole("button", { name: "Спробувати ще раз" })).toBeEnabled();
 });
 
+it("shows the focused listening controls while a note is being recorded", async () => {
+  microphone();
+  render(<VoiceRecorder onTranscript={vi.fn()} />);
+
+  await userEvent.click(screen.getByRole("button", { name: "Почати запис" }));
+
+  expect(await screen.findByText("Слухаю…")).toBeVisible();
+  expect(screen.getByRole("img", { name: "Рівень звуку" })).toBeVisible();
+  expect(screen.getAllByTestId("voice-level-bar")).toHaveLength(11);
+  expect(document.querySelector(".voice-capture-pulse")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Пауза запису" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Зупинити запис" })).toHaveClass("voice-stop-button");
+});
+
+it("starts listening automatically for the voice-first flow", async () => {
+  const { getUserMedia } = microphone();
+  render(<VoiceRecorder autoStart onTranscript={vi.fn()} />);
+
+  expect(await screen.findByText("Слухаю…")).toBeVisible();
+  expect(getUserMedia).toHaveBeenCalledOnce();
+  expect(screen.getByRole("button", { name: "Зупинити запис" })).toBeVisible();
+});
+
 it("transcribes one combined recording and cleans up every media track", async () => {
   const firstTrack = { stop: vi.fn() } as unknown as MediaStreamTrack;
   const secondTrack = { stop: vi.fn() } as unknown as MediaStreamTrack;

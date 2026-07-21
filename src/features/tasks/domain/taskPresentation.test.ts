@@ -5,12 +5,12 @@ it("maps stored priorities to the approved Ukrainian presentation", () => {
   expect(priorityPresentation("high")).toMatchObject({
     label: "Висока",
     tone: "high",
-    direction: "up",
+    direction: "highest",
   });
   expect(priorityPresentation("medium")).toMatchObject({
     label: "Середня",
     tone: "medium",
-    direction: "flat",
+    direction: "up",
   });
   expect(priorityPresentation("low")).toMatchObject({
     label: "Мінімальна",
@@ -20,6 +20,7 @@ it("maps stored priorities to the approved Ukrainian presentation", () => {
   expect(priorityPresentation(null)).toMatchObject({
     label: "Без пріоритету",
     tone: "none",
+    direction: "flat",
   });
 });
 

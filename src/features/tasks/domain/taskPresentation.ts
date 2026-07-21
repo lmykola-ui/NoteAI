@@ -4,22 +4,22 @@ import type { Task, TaskPriority } from "./task";
 export type PriorityPresentation = {
   label: string;
   tone: "high" | "medium" | "minimal" | "none";
-  direction: "up" | "flat" | "down";
+  direction: "highest" | "up" | "flat" | "down";
 };
 
 export function priorityPresentation(
   priority: TaskPriority | null,
 ): PriorityPresentation {
   if (priority === "high") {
-    return { label: "Висока", tone: "high", direction: "up" };
+    return { label: "Висока", tone: "high", direction: "highest" };
   }
   if (priority === "medium") {
-    return { label: "Середня", tone: "medium", direction: "flat" };
+    return { label: "Середня", tone: "medium", direction: "up" };
   }
   if (priority === "low") {
     return { label: "Мінімальна", tone: "minimal", direction: "down" };
   }
-  return { label: "Без пріоритету", tone: "none", direction: "up" };
+  return { label: "Без пріоритету", tone: "none", direction: "flat" };
 }
 
 export function formatTaskSchedule(

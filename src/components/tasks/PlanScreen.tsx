@@ -6,10 +6,9 @@ import { TaskCard } from "./TaskCard";
 type PlanScreenProps = {
   tasks: Task[];
   today: string;
-  onChange(task: Task): void | Promise<void>;
   onComplete(id: string): void | Promise<void>;
   onRestore(id: string): void | Promise<void>;
-  onDelete(id: string): void | Promise<void>;
+  onEdit?(task: Task): void;
 };
 
 export function comparePlanTasks(a: Task, b: Task): number {

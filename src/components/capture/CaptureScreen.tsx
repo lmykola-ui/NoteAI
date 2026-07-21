@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ListChecks } from "lucide-react";
 import { QuickPreview } from "@/components/preview/QuickPreview";
 import { VoiceRecorder } from "@/components/capture/VoiceRecorder";
 import { parseText } from "@/features/capture/application/parseClient";
@@ -42,11 +43,13 @@ const taskSaveErrorMessage =
 
 type CaptureScreenProps = {
   aiAvailable?: boolean;
+  voiceFirst?: boolean;
   onConfirmedSave?(): void;
 };
 
 export function CaptureScreen({
   aiAvailable = true,
+  voiceFirst = false,
   onConfirmedSave,
 }: CaptureScreenProps) {
   const { addDrafts } = useTasks();
@@ -123,6 +126,9 @@ export function CaptureScreen({
   async function handleTranscript(transcript: string) {
     if (!isOnlineNow()) return;
     changeText(transcript, "voice");
+    if (voiceFirst) {
+      await parseCapture("voice", transcript);
+    }
   }
 
   async function confirmTasks(tasks: ParseResult["tasks"]) {
@@ -190,23 +196,30 @@ export function CaptureScreen({
   const isParsing = captureState.kind === "parsing";
 
   return (
-    <section aria-label="Створення нотатки" className="capture-screen">
-      <h1>Що в голові?</h1>
-      <p>Напишіть або скажіть усе підряд, а ми перетворимо це на задачі.</p>
-      <label className="capture-input">
-        Ваша нотатка
-        <textarea
-          value={text}
-          onChange={(event) => changeText(event.target.value)}
-          placeholder="Наприклад, купити молоко сьогодні"
-          rows={6}
-          disabled={isParsing}
-        />
-      </label>
-      {isParsing ? null : (
-        <VoiceRecorder onTranscript={handleTranscript} disabled={!aiAvailable} />
+    <section aria-label="Створення нотатки" className={`capture-screen ${voiceFirst ? "capture-screen--voice" : ""}`}>
+      <h1>{voiceFirst ? "Голосова нотатка" : "Що в голові?"}</h1>
+      <p>{voiceFirst ? "Слухаю й одразу структурую вашу задачу." : "Напишіть або скажіть усе підряд, а ми перетворимо це на задачі."}</p>
+      {voiceFirst ? (
+        <div className="voice-capture-stage">
+          <div className="voice-preview-note"><ListChecks size={20} aria-hidden="true" /><span>Після запису покажу задачі для перевірки</span></div>
+          {isParsing ? <p className="voice-processing" role="status">Структурую задачі…</p> : <VoiceRecorder autoStart onTranscript={handleTranscript} disabled={!aiAvailable} />}
+        </div>
+      ) : (
+        <>
+          <label className="capture-input">
+            Ваша нотатка
+            <textarea
+              value={text}
+              onChange={(event) => changeText(event.target.value)}
+              placeholder="Наприклад, купити молоко сьогодні"
+              rows={6}
+              disabled={isParsing}
+            />
+          </label>
+          {isParsing ? null : <VoiceRecorder onTranscript={handleTranscript} disabled={!aiAvailable} />}
+          <p className="storage-help">Зберігається лише в цьому браузері</p>
+        </>
       )}
-      <p className="storage-help">Зберігається лише в цьому браузері</p>
       {captureState.kind === "error" ? (
         <p role="alert" className="capture-error">
           {captureState.message}
@@ -217,14 +230,14 @@ export function CaptureScreen({
           {draftStorageError}
         </p>
       ) : null}
-      <button
+      {!voiceFirst ? <button
         type="button"
         className="primary-button"
         onClick={() => parseCapture()}
         disabled={isParsing || !text.trim() || !aiAvailable}
       >
         {isParsing ? "Аналізуємо…" : "Розібрати"}
-      </button>
+      </button> : null}
     </section>
   );
 }

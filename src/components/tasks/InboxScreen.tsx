@@ -4,10 +4,9 @@ import { TaskCard } from "./TaskCard";
 type InboxScreenProps = {
   tasks: Task[];
   today: string;
-  onChange(task: Task): void | Promise<void>;
   onComplete(id: string): void | Promise<void>;
   onRestore(id: string): void | Promise<void>;
-  onDelete(id: string): void | Promise<void>;
+  onEdit?(task: Task): void;
 };
 
 export function InboxScreen({ tasks, today, ...actions }: InboxScreenProps) {

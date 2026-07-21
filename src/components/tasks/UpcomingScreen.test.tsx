@@ -16,3 +16,30 @@ it("shows a weekly calendar that expands to a full month and selects a date", as
   await user.click(screen.getByRole("button", { name: "Розгорнути календар" }));
   expect(screen.getByRole("button", { name: "Згорнути календар" })).toBeVisible();
 });
+
+it("keeps month text static and places the agenda in a separate bottom sheet", async () => {
+  render(<UpcomingScreen tasks={[]} today="2026-07-21" {...actions} />);
+
+  expect(screen.getByText("Липень 2026")).not.toHaveAttribute("role", "button");
+  expect(screen.getByRole("region", { name: "Список запланованих задач" })).toBeVisible();
+});
+
+it("syncs a day selected from the agenda back to the calendar", async () => {
+  const user = userEvent.setup();
+  render(<UpcomingScreen tasks={[]} today="2026-07-21" {...actions} />);
+
+  await user.click(screen.getByRole("button", { name: "середа, 22 липня · Завтра" }));
+
+  expect(screen.getByRole("button", { name: "Обрати 22 липень" })).toHaveAttribute("aria-pressed", "true");
+});
+
+it("offers a quick return to today after selecting another date", async () => {
+  const user = userEvent.setup();
+  render(<UpcomingScreen tasks={[]} today="2026-07-21" {...actions} />);
+
+  expect(screen.queryByRole("button", { name: "Повернутися до сьогодні" })).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Обрати 22 липень" }));
+  await user.click(screen.getByRole("button", { name: "Повернутися до сьогодні" }));
+
+  expect(screen.getByRole("button", { name: "Обрати 21 липень" })).toHaveAttribute("aria-pressed", "true");
+});

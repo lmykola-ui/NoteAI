@@ -37,6 +37,18 @@ async function cacheCurrentShell(): Promise<void> {
 
 export function OfflineInitializer() {
   useEffect(() => {
+    if (process.env.NODE_ENV === "development") {
+      void Promise.all([
+        navigator.serviceWorker?.getRegistrations().then((registrations) =>
+          Promise.all(registrations.map((registration) => registration.unregister())),
+        ),
+        caches?.delete(shellCacheName),
+      ]).then(() => {
+        document.documentElement.dataset.offlineReady = "development";
+      });
+      return;
+    }
+
     if (!("serviceWorker" in navigator) || !("caches" in window)) {
       document.documentElement.dataset.offlineReady = "unsupported";
       return;
