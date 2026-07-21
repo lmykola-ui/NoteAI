@@ -2,6 +2,10 @@
 
 import { useState, type FormEvent } from "react";
 import { isOverdue } from "@/features/tasks/domain/dateWindow";
+import {
+  formatTaskSchedule,
+  priorityPresentation,
+} from "@/features/tasks/domain/taskPresentation";
 import type { Task, TaskPriority } from "@/features/tasks/domain/task";
 
 type TaskCardProps = {
@@ -20,12 +24,6 @@ type EditableTask = Pick<
 
 type TaskAction = (id: string) => void | Promise<void>;
 
-const priorityLabels: Record<NonNullable<TaskPriority>, string> = {
-  low: "Низький",
-  medium: "Середній",
-  high: "Високий",
-};
-
 function toEditableTask(task: Task): EditableTask {
   return {
     title: task.title,
@@ -33,13 +31,6 @@ function toEditableTask(task: Task): EditableTask {
     scheduledTime: task.scheduledTime,
     priority: task.priority,
   };
-}
-
-function formatDate(date: string): string {
-  return new Intl.DateTimeFormat("uk-UA", {
-    day: "numeric",
-    month: "long",
-  }).format(new Date(`${date}T12:00:00`));
 }
 
 export function TaskCard({
@@ -138,10 +129,10 @@ export function TaskCard({
                 }))
               }
             >
-              <option value="">Не вказано</option>
-              <option value="low">Низький</option>
-              <option value="medium">Середній</option>
-              <option value="high">Високий</option>
+              <option value="">Без пріоритету</option>
+              <option value="low">Мінімальна</option>
+              <option value="medium">Середня</option>
+              <option value="high">Висока</option>
             </select>
           </label>
           <div className="task-card-actions">
@@ -161,19 +152,35 @@ export function TaskCard({
     );
   }
 
+  const priority = priorityPresentation(task.priority);
+
   return (
     <article aria-label={task.title} className="task-card">
-      <div className="task-card-heading">
-        <h2>{task.title}</h2>
-        {task.status === "completed" ? <span>Виконано</span> : null}
+      <button
+        type="button"
+        className={`task-completion task-completion--${priority.tone}`}
+        aria-label={
+          task.status === "active"
+            ? `Позначити «${task.title}» виконаною`
+            : `Відновити «${task.title}»`
+        }
+        onClick={() =>
+          runTaskAction(task.status === "active" ? onComplete : onRestore)
+        }
+      />
+      <div className="task-card-content">
+        <div className="task-card-heading">
+          <h2>{task.title}</h2>
+          {task.status === "completed" ? <span>Виконано</span> : null}
+        </div>
+        <p className="task-meta">{formatTaskSchedule(task, today)}</p>
       </div>
-      <p className="task-meta">
-        {task.scheduledDate ? `Дата: ${formatDate(task.scheduledDate)}` : "Без дати"}
-        {task.scheduledTime ? ` · ${task.scheduledTime}` : ""}
-      </p>
-      <p className="task-meta">
-        Пріоритет: {task.priority ? priorityLabels[task.priority] : "не вказано"}
-      </p>
+      <span
+        aria-label={`Пріоритет: ${priority.label}`}
+        className={`priority-chevron priority-chevron--${priority.tone} priority-chevron--${priority.direction}`}
+      >
+        {priority.direction === "up" ? "⌃" : priority.direction === "down" ? "⌄" : "—"}
+      </span>
       {task.status === "active" && isOverdue(task.scheduledDate, today) ? (
         <p className="task-overdue">Прострочено</p>
       ) : null}
@@ -186,20 +193,8 @@ export function TaskCard({
         <button type="button" className="secondary-button" onClick={startEditing}>
           Редагувати задачу
         </button>
-        {task.status === "active" ? (
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => runTaskAction(onComplete)}
-          >
-            Позначити виконаною
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => runTaskAction(onRestore)}
-          >
+        {task.status === "active" ? null : (
+          <button type="button" className="secondary-button" onClick={() => runTaskAction(onRestore)}>
             Відновити задачу
           </button>
         )}

@@ -56,7 +56,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it("opens Capture and switches between exactly three destinations", async () => {
+it("opens Inbox and switches between exactly three destinations", async () => {
   const user = userEvent.setup();
   const repository = createMemoryTaskRepository();
 
@@ -66,21 +66,21 @@ it("opens Capture and switches between exactly three destinations", async () => 
     </TaskProvider>,
   );
 
-  expect(screen.getByRole("heading", { name: "Що в голові?" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "Вхідні" })).toBeVisible();
   expect(screen.getAllByRole("navigation")).toHaveLength(1);
   expect(
-    screen.getAllByRole("button", { name: /^(Capture|Inbox|План)$/ }),
+    screen.getAllByRole("button", { name: /^(Вхідні|Сьогодні|Заплановані)$/ }),
   ).toHaveLength(3);
 
-  await user.click(screen.getByRole("button", { name: "Inbox" }));
-  expect(screen.getByRole("heading", { name: "Inbox" })).toBeVisible();
-  expect(screen.getByRole("button", { name: "Inbox" })).toHaveAttribute(
+  await user.click(screen.getByRole("button", { name: "Сьогодні" }));
+  expect(screen.getByRole("heading", { name: "Сьогодні" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Сьогодні" })).toHaveAttribute(
     "aria-current",
     "page",
   );
 
-  await user.click(screen.getByRole("button", { name: "План" }));
-  expect(screen.getByRole("heading", { name: "План" })).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Заплановані" }));
+  expect(screen.getByRole("heading", { name: "Заплановані" })).toBeVisible();
 });
 
 it("announces local task hydration until the repository load settles", async () => {
@@ -120,6 +120,8 @@ it("never starts an AI request from a same-tick offline event", async () => {
     </TaskProvider>,
   );
 
+  fireEvent.click(screen.getByRole("button", { name: "Додати задачу" }));
+  fireEvent.click(screen.getByRole("button", { name: "Записати голосом" }));
   fireEvent.change(screen.getByLabelText("Ваша нотатка"), {
     target: { value: "Купити молоко" },
   });
@@ -161,6 +163,8 @@ it("requests persistence once, only after the first successful confirmation reso
   );
 
   expect(shellMocks.requestPersistence).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "Додати задачу" }));
+  await user.click(screen.getByRole("button", { name: "Записати голосом" }));
   await user.type(screen.getByLabelText("Ваша нотатка"), "Перша нотатка");
   await user.click(screen.getByRole("button", { name: "Розібрати" }));
   await user.click(await screen.findByRole("button", { name: "Додати все" }));
@@ -173,6 +177,8 @@ it("requests persistence once, only after the first successful confirmation reso
     expect(shellMocks.requestPersistence).toHaveBeenCalledOnce(),
   );
 
+  await user.click(screen.getByRole("button", { name: "Додати задачу" }));
+  await user.click(screen.getByRole("button", { name: "Записати голосом" }));
   await user.type(screen.getByLabelText("Ваша нотатка"), "Друга нотатка");
   await user.click(screen.getByRole("button", { name: "Розібрати" }));
   await user.click(await screen.findByRole("button", { name: "Додати все" }));

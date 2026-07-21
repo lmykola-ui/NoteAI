@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-import { addLocalDays } from "@/features/tasks/domain/dateWindow";
 import type { Task } from "@/features/tasks/domain/task";
 import { TaskCard } from "./TaskCard";
 
@@ -23,43 +21,16 @@ export function comparePlanTasks(a: Task, b: Task): number {
   return a.createdAt.localeCompare(b.createdAt);
 }
 
-function formatPlanDate(date: string): string {
-  return new Intl.DateTimeFormat("uk-UA", {
-    day: "numeric",
-    month: "long",
-  }).format(new Date(`${date}T12:00:00`));
-}
-
 export function PlanScreen({ tasks, today, ...actions }: PlanScreenProps) {
-  const [storedSelectedDate, setSelectedDate] = useState(today);
-  const dates = Array.from({ length: 7 }, (_, index) => addLocalDays(today, index));
-  const selectedDate = dates.includes(storedSelectedDate)
-    ? storedSelectedDate
-    : today;
-
   const selectedTasks = tasks
     .filter(
-      (task) => task.status === "active" && task.scheduledDate === selectedDate,
+      (task) => task.status === "active" && task.scheduledDate === today,
     )
     .sort(comparePlanTasks);
 
   return (
-    <section className="task-screen" aria-label="План">
-      <h1>План</h1>
-      <div className="plan-dates" aria-label="Сім днів">
-        {dates.map((date) => (
-          <button
-            key={date}
-            type="button"
-            className="plan-date-button"
-            aria-label={`Обрати ${formatPlanDate(date)}`}
-            aria-pressed={selectedDate === date}
-            onClick={() => setSelectedDate(date)}
-          >
-            {formatPlanDate(date)}
-          </button>
-        ))}
-      </div>
+    <section className="task-screen" aria-label="Сьогодні">
+      <h1>Сьогодні</h1>
       {selectedTasks.length ? (
         <div className="task-list">
           {selectedTasks.map((task) => (
@@ -67,7 +38,7 @@ export function PlanScreen({ tasks, today, ...actions }: PlanScreenProps) {
           ))}
         </div>
       ) : (
-        <p className="empty-state">На цей день задач немає.</p>
+        <p className="empty-state">На сьогодні задач немає.</p>
       )}
     </section>
   );

@@ -8,27 +8,33 @@ import {
 import { CaptureScreen } from "@/components/capture/CaptureScreen";
 import { InboxScreen } from "@/components/tasks/InboxScreen";
 import { PlanScreen } from "@/components/tasks/PlanScreen";
+import { UpcomingScreen } from "@/components/tasks/UpcomingScreen";
+import { TaskComposer } from "@/components/tasks/TaskComposer";
+import { HistoryScreen } from "@/components/tasks/HistoryScreen";
 import { useTasks } from "@/features/tasks/application/TaskProvider";
 import { useLocalToday } from "@/features/tasks/application/useLocalToday";
 import { requestLocalPersistence } from "@/lib/storagePersistence";
 
-type Destination = "capture" | "inbox" | "plan";
+type Destination = "inbox" | "plan" | "upcoming" | "capture";
 
 const destinations: Array<{ id: Destination; label: string }> = [
-  { id: "capture", label: "Capture" },
-  { id: "inbox", label: "Inbox" },
-  { id: "plan", label: "План" },
+  { id: "inbox", label: "Вхідні" },
+  { id: "plan", label: "Сьогодні" },
+  { id: "upcoming", label: "Заплановані" },
 ];
 
 export function AppShell() {
-  const [destination, setDestination] = useState<Destination>("capture");
+  const [destination, setDestination] = useState<Destination>("inbox");
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [undoTaskId, setUndoTaskId] = useState<string | null>(null);
   const isOnline = useOnlineStatus();
   const persistenceRequested = useRef(false);
   const {
     tasks,
     loading,
     error,
-    updateTask,
+    addDrafts, updateTask,
     completeTask,
     restoreTask,
     deleteTask,
@@ -41,6 +47,7 @@ export function AppShell() {
     persistenceRequested.current = true;
     void requestLocalPersistence().catch(() => undefined);
   }
+  async function completeWithUndo(id: string) { await completeTask(id); setUndoTaskId(id); }
 
   return (
     <main className="mobile-shell">
@@ -50,33 +57,42 @@ export function AppShell() {
           Завантажуємо локальні задачі…
         </p>
       ) : null}
-      {destination === "capture" ? (
+      {historyOpen ? <HistoryScreen tasks={tasks} today={today} onRestore={restoreTask} onDelete={deleteTask} onClose={() => setHistoryOpen(false)} /> : null}
+      {!historyOpen && destination === "capture" ? (
         <CaptureScreen
           aiAvailable={isOnline}
-          onConfirmedSave={requestPersistenceAfterFirstSave}
+          onConfirmedSave={() => {
+            requestPersistenceAfterFirstSave();
+            setDestination("inbox");
+          }}
         />
       ) : null}
-      {destination === "inbox" ? (
+      {!historyOpen && destination === "upcoming" ? <UpcomingScreen tasks={tasks} today={today} onChange={updateTask} onComplete={completeWithUndo} onRestore={restoreTask} onDelete={deleteTask} /> : null}
+      {!historyOpen && destination === "inbox" ? (
         <InboxScreen
           tasks={tasks}
           today={today}
           onChange={updateTask}
-          onComplete={completeTask}
+          onComplete={completeWithUndo}
           onRestore={restoreTask}
           onDelete={deleteTask}
         />
       ) : null}
-      {destination === "plan" ? (
+      {!historyOpen && destination === "plan" ? (
         <PlanScreen
           tasks={tasks}
           today={today}
           onChange={updateTask}
-          onComplete={completeTask}
+          onComplete={completeWithUndo}
           onRestore={restoreTask}
           onDelete={deleteTask}
         />
       ) : null}
       {error ? <p role="alert" className="capture-error">{error}</p> : null}
+      {!historyOpen ? <button type="button" aria-label="Відкрити історію" className="history-button" onClick={() => setHistoryOpen(true)}>⋯</button> : null}
+      {undoTaskId ? <div className="undo-toast" role="status">Виконано <button type="button" onClick={async () => { await restoreTask(undoTaskId); setUndoTaskId(null); }}>Скасувати</button></div> : null}
+      {destination !== "capture" ? <button type="button" aria-label="Додати задачу" className="add-task-button" onClick={() => setComposerOpen(true)}>+</button> : null}
+      {composerOpen ? <TaskComposer today={today} onClose={() => setComposerOpen(false)} onStartVoice={() => { setComposerOpen(false); setDestination("capture"); }} onCreate={async (draft) => { await addDrafts([draft]); requestPersistenceAfterFirstSave(); setComposerOpen(false); setDestination("inbox"); }} /> : null}
       <nav aria-label="Основна навігація" className="bottom-nav">
         {destinations.map(({ id, label }) => (
           <button

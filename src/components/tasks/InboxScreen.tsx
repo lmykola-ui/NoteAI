@@ -1,4 +1,3 @@
-import { classifyTaskDate } from "@/features/tasks/domain/dateWindow";
 import type { Task } from "@/features/tasks/domain/task";
 import { TaskCard } from "./TaskCard";
 
@@ -12,16 +11,13 @@ type InboxScreenProps = {
 };
 
 export function InboxScreen({ tasks, today, ...actions }: InboxScreenProps) {
-  const activeTasks = tasks.filter(
-    (task) =>
-      task.status === "active" &&
-      classifyTaskDate(task.scheduledDate, today) === "inbox",
-  );
-  const completedTasks = tasks.filter((task) => task.status === "completed");
+  const activeTasks = tasks
+    .filter((task) => task.status === "active")
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
 
   return (
-    <section className="task-screen" aria-label="Inbox">
-      <h1>Inbox</h1>
+    <section className="task-screen" aria-label="Вхідні">
+      <h1>Вхідні</h1>
       {activeTasks.length ? (
         <div className="task-list">
           {activeTasks.map((task) => (
@@ -29,18 +25,8 @@ export function InboxScreen({ tasks, today, ...actions }: InboxScreenProps) {
           ))}
         </div>
       ) : (
-        <p className="empty-state">У Inbox немає активних задач.</p>
+        <p className="empty-state">У Вхідних немає активних задач.</p>
       )}
-      {completedTasks.length ? (
-        <details className="completed-tasks">
-          <summary>Виконані</summary>
-          <div className="task-list">
-            {completedTasks.map((task) => (
-              <TaskCard key={task.id} task={task} today={today} {...actions} />
-            ))}
-          </div>
-        </details>
-      ) : null}
     </section>
   );
 }

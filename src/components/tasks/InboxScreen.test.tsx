@@ -1,5 +1,4 @@
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 import { makeTask } from "../../../tests/fixtures/taskFactory";
 import { InboxScreen } from "./InboxScreen";
@@ -33,7 +32,7 @@ const actions = {
   onDelete: vi.fn(),
 };
 
-it("keeps undated, overdue, and later-future tasks in Inbox", () => {
+it("keeps every active task in one Inbox list", () => {
   render(
     <InboxScreen
       tasks={[undated, overdue, laterFuture, todayTask]}
@@ -46,11 +45,10 @@ it("keeps undated, overdue, and later-future tasks in Inbox", () => {
   expect(screen.getByText(overdue.title)).toBeVisible();
   expect(screen.getByText("Прострочено")).toBeVisible();
   expect(screen.getByText(laterFuture.title)).toBeVisible();
-  expect(screen.queryByText(todayTask.title)).not.toBeInTheDocument();
+  expect(screen.getByText(todayTask.title)).toBeVisible();
 });
 
-it("keeps completed tasks in a collapsed restore section", async () => {
-  const user = userEvent.setup();
+it("does not mix completed tasks into Inbox", () => {
   render(
     <InboxScreen
       tasks={[undated, completed]}
@@ -59,13 +57,5 @@ it("keeps completed tasks in a collapsed restore section", async () => {
     />,
   );
 
-  const completedSection = screen.getByText("Виконані").closest("details");
-  expect(completedSection).not.toHaveAttribute("open");
-  expect(screen.getByText(completed.title)).not.toBeVisible();
-
-  await user.click(screen.getByText("Виконані"));
-  expect(screen.getByText(completed.title)).toBeVisible();
-  expect(
-    screen.getByRole("button", { name: "Відновити задачу" }),
-  ).toBeVisible();
+  expect(screen.queryByText(completed.title)).not.toBeInTheDocument();
 });

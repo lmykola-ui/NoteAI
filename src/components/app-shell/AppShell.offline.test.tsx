@@ -25,12 +25,12 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it("never enables AI on the first render of a cold offline load", () => {
+it("does not mount voice capture on the first render of a cold offline load", () => {
   render(
     <TaskProvider repository={createMemoryTaskRepository()}>
       <AppShell />
     </TaskProvider>,
   );
 
-  expect(firstRender.aiAvailable[0]).toBe(false);
+  expect(firstRender.aiAvailable).toEqual([]);
 });

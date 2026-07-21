@@ -46,7 +46,7 @@ it("marks an active task complete and allows deletion", async () => {
     />,
   );
 
-  await user.click(screen.getByRole("button", { name: "Позначити виконаною" }));
+  await user.click(screen.getByRole("button", { name: /Позначити.*виконаною/ }));
   await user.click(screen.getByRole("button", { name: "Видалити задачу" }));
 
   expect(onComplete).toHaveBeenCalledWith("task-1");
@@ -84,7 +84,7 @@ it.each([
   {
     task: makeTask(),
     action: "onComplete" as const,
-    button: "Позначити виконаною",
+    button: /Позначити.*виконаною/,
   },
   {
     task: makeTask({ status: "completed" }),
