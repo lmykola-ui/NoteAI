@@ -5,6 +5,7 @@ export type InputMethod = "text" | "voice";
 export type Task = {
   id: string;
   title: string;
+  description?: string;
   scheduledDate: string | null;
   scheduledTime: string | null;
   status: TaskStatus;
@@ -17,7 +18,7 @@ export type Task = {
 
 export type TaskDraft = Pick<
   Task,
-  "title" | "scheduledDate" | "scheduledTime" | "status" | "priority" | "inputMethod"
+  "title" | "description" | "scheduledDate" | "scheduledTime" | "status" | "priority" | "inputMethod"
 >;
 
 export type ParseResult = {
