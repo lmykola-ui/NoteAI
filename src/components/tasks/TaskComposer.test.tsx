@@ -53,6 +53,21 @@ it("shows the chosen date, time, and priority in the task controls", async () =>
   expect(screen.getByRole("button", { name: "30 липня" })).toBeVisible();
 });
 
+it("keeps today available after clearing a date and uses neutral time actions", async () => {
+  const user = userEvent.setup();
+  render(<TaskComposer today="2026-07-21" onClose={vi.fn()} onCreate={vi.fn()} onStartVoice={vi.fn()} />);
+
+  await user.click(screen.getByRole("button", { name: "Сьогодні" }));
+  await user.click(screen.getByRole("button", { name: "Без дати" }));
+  await user.click(screen.getByRole("button", { name: "Без дати" }));
+  await user.click(screen.getByRole("button", { name: "Сьогодні" }));
+  expect(screen.getByRole("button", { name: "Сьогодні" })).toBeVisible();
+
+  await user.click(screen.getByRole("button", { name: "Без часу" }));
+  expect(screen.getByRole("button", { name: "Застосувати час" })).toHaveClass("time-wheel-action");
+  expect(screen.getAllByRole("button", { name: "Без часу" })[1]).toHaveClass("time-wheel-action");
+});
+
 it("saves a task for the day after tomorrow", async () => {
   const user = userEvent.setup();
   const onCreate = vi.fn().mockResolvedValue(undefined);
