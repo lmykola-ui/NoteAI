@@ -58,3 +58,51 @@ it("waits for completion feedback before completing a scheduled task", async () 
   expect(onComplete).toHaveBeenCalledWith(task.id);
   vi.useRealTimers();
 });
+
+it("changes month with a horizontal swipe in the expanded calendar without month arrows", async () => {
+  const user = userEvent.setup();
+  render(<UpcomingScreen tasks={[]} today="2026-07-21" {...actions} />);
+
+  await user.click(screen.getByRole("button", { name: "Розгорнути календар" }));
+  const calendarGrid = screen.getByRole("button", { name: "Обрати 1 липень" }).parentElement!;
+
+  fireEvent.touchStart(calendarGrid, { touches: [{ clientX: 240, clientY: 180 }] });
+  fireEvent.touchEnd(calendarGrid, { changedTouches: [{ clientX: 192, clientY: 185 }] });
+
+  expect(screen.getByText("Серпень 2026")).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Обрати 2 серпень" }));
+  expect(screen.getByRole("button", { name: "Обрати 2 серпень" })).toHaveAttribute("aria-pressed", "true");
+
+  const nextMonthGrid = screen.getByRole("button", { name: "Обрати 1 серпень" }).parentElement!;
+  fireEvent.touchStart(nextMonthGrid, { touches: [{ clientX: 180, clientY: 180 }] });
+  fireEvent.touchEnd(nextMonthGrid, { changedTouches: [{ clientX: 240, clientY: 175 }] });
+
+  expect(screen.getByText("Липень 2026")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Попередній місяць" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Наступний місяць" })).not.toBeInTheDocument();
+});
+
+it("does not change month for vertical or short calendar movements", async () => {
+  const user = userEvent.setup();
+  render(<UpcomingScreen tasks={[]} today="2026-07-21" {...actions} />);
+
+  await user.click(screen.getByRole("button", { name: "Розгорнути календар" }));
+  const calendarGrid = screen.getByRole("button", { name: "Обрати 1 липень" }).parentElement!;
+
+  fireEvent.touchStart(calendarGrid, { touches: [{ clientX: 200, clientY: 160 }] });
+  fireEvent.touchEnd(calendarGrid, { changedTouches: [{ clientX: 210, clientY: 250 }] });
+  fireEvent.touchStart(calendarGrid, { touches: [{ clientX: 200, clientY: 160 }] });
+  fireEvent.touchEnd(calendarGrid, { changedTouches: [{ clientX: 160, clientY: 163 }] });
+
+  expect(screen.getByText("Липень 2026")).toBeVisible();
+});
+
+it("does not change month from the collapsed weekly calendar", () => {
+  render(<UpcomingScreen tasks={[]} today="2026-07-21" {...actions} />);
+  const calendarGrid = screen.getByRole("button", { name: "Обрати 21 липень" }).parentElement!;
+
+  fireEvent.touchStart(calendarGrid, { touches: [{ clientX: 240, clientY: 180 }] });
+  fireEvent.touchEnd(calendarGrid, { changedTouches: [{ clientX: 100, clientY: 185 }] });
+
+  expect(screen.getByText("Липень 2026")).toBeVisible();
+});

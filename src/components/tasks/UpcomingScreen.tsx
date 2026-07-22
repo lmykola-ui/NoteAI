@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Sun } from "lucide-react";
+import type { TouchEvent } from "react";
 import { addLocalDays } from "@/features/tasks/domain/dateWindow";
 import type { Task } from "@/features/tasks/domain/task";
 import { TaskCard } from "./TaskCard";
@@ -41,6 +42,7 @@ function title(date: string, today: string) {
 export function UpcomingScreen({ tasks, today, ...actions }: Props) {
   const [selected, setSelected] = useState(today);
   const [expanded, setExpanded] = useState(false);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
   const selectedDate = toDate(selected);
   const year = selectedDate.getFullYear();
   const month = selectedDate.getMonth();
@@ -65,6 +67,25 @@ export function UpcomingScreen({ tasks, today, ...actions }: Props) {
     setSelected(toKey(next));
   }
 
+  function handleCalendarTouchStart(event: TouchEvent<HTMLDivElement>) {
+    const touch = event.touches[0];
+    if (touch) touchStart.current = { x: touch.clientX, y: touch.clientY };
+  }
+
+  function handleCalendarTouchEnd(event: TouchEvent<HTMLDivElement>) {
+    const start = touchStart.current;
+    const touch = event.changedTouches[0];
+    touchStart.current = null;
+    if (!start || !touch) return;
+
+    const horizontal = touch.clientX - start.x;
+    const vertical = touch.clientY - start.y;
+    if (Math.abs(horizontal) < 48 || Math.abs(horizontal) <= Math.abs(vertical)) return;
+
+    event.preventDefault();
+    shiftMonth(horizontal < 0 ? 1 : -1);
+  }
+
   const calendarDates = expanded
     ? visibleDates
     : Array.from({ length: 7 }, (_, index) => addLocalDays(monday, index));
@@ -77,11 +98,6 @@ export function UpcomingScreen({ tasks, today, ...actions }: Props) {
 
       <div className={`upcoming-calendar ${expanded ? "upcoming-calendar--expanded" : ""}`}>
         <div className="month-row">
-          {expanded ? (
-            <button type="button" aria-label="Попередній місяць" onClick={() => shiftMonth(-1)}>
-              ‹
-            </button>
-          ) : null}
           <div className="month-label-group">
             <p className="month-select">{monthLabel}</p>
             {selected !== today ? (
@@ -95,16 +111,16 @@ export function UpcomingScreen({ tasks, today, ...actions }: Props) {
               </button>
             ) : null}
           </div>
-          {expanded ? (
-            <button type="button" aria-label="Наступний місяць" onClick={() => shiftMonth(1)}>
-              ›
-            </button>
-          ) : null}
         </div>
         <div className="calendar-weekdays">
           {weekdays.map((day) => <span key={day}>{day}</span>)}
         </div>
-        <div className="calendar-days">
+        <div
+          className="calendar-days"
+          onTouchStart={expanded ? handleCalendarTouchStart : undefined}
+          onTouchEnd={expanded ? handleCalendarTouchEnd : undefined}
+          onTouchCancel={expanded ? () => { touchStart.current = null; } : undefined}
+        >
           {calendarDates.map((date) => {
             const current = toDate(date);
             const inMonth = current.getMonth() === month;
