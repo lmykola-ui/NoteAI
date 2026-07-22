@@ -44,6 +44,7 @@ export function AppShell() {
     updateTask,
     completeTask,
     restoreTask,
+    clearCompletedTasks,
     reorderInboxTasks,
   } = useTasks();
   const today = useLocalToday();
@@ -70,7 +71,7 @@ export function AppShell() {
           Завантажуємо локальні задачі…
         </p>
       ) : null}
-      {historyOpen ? <HistoryScreen tasks={tasks} today={today} onRestore={restoreTask} onClose={() => setHistoryOpen(false)} /> : null}
+      {historyOpen ? <HistoryScreen tasks={tasks} today={today} onRestore={restoreTask} onClose={() => setHistoryOpen(false)} onClear={clearCompletedTasks} /> : null}
       {utilityScreen ? <section className="task-screen utility-screen" aria-label={utilityScreen === "settings" ? "Налаштування" : utilityScreen === "premium" ? "Premium" : "Онбординг"}><div className="screen-heading"><h1>{utilityScreen === "settings" ? "Налаштування" : utilityScreen === "premium" ? "Premium" : "Онбординг"}</h1><button type="button" className="secondary-button" onClick={() => setUtilityScreen(null)}>Назад</button></div><p className="empty-state">{utilityScreen === "settings" ? "Налаштування застосунку з’являться тут." : utilityScreen === "premium" ? "Можливості Premium з’являться тут." : "Коротке знайомство з NoteAI з’явиться тут."}</p></section> : null}
       {!historyOpen && !utilityScreen && destination === "capture" ? (
         <CaptureScreen

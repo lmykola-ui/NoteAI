@@ -10,6 +10,7 @@ import {
   type PropsWithChildren,
 } from "react";
 import { materializeTask, type Task, type TaskDraft } from "../domain/task";
+import { expiredCompletedTaskIds } from "../domain/historyRetention";
 import { indexedDbTaskRepository } from "../infrastructure/IndexedDbTaskRepository";
 import type { TaskRepository } from "../infrastructure/TaskRepository";
 
@@ -22,6 +23,7 @@ type TaskContextValue = {
   completeTask(id: string): Promise<void>;
   restoreTask(id: string): Promise<void>;
   deleteTask(id: string): Promise<void>;
+  clearCompletedTasks(): Promise<void>;
   reorderInboxTasks(ids: string[]): Promise<void>;
 };
 
@@ -58,6 +60,19 @@ function applyPendingMutations(
   }, [...loaded]);
 }
 
+async function removeTaskIds(
+  repository: TaskRepository,
+  ids: string[],
+): Promise<{ removedIds: string[]; failed: boolean }> {
+  const results = await Promise.allSettled(ids.map((id) => repository.remove(id)));
+  const removedIds = ids.filter((_, index) => results[index]?.status === "fulfilled");
+
+  return {
+    removedIds,
+    failed: results.some((result) => result.status === "rejected"),
+  };
+}
+
 export function TaskProvider({
   children,
   repository = indexedDbTaskRepository,
@@ -75,14 +90,24 @@ export function TaskProvider({
 
     repository
       .list()
-      .then((loaded) => {
+      .then(async (loaded) => {
         if (cancelled) return;
 
         const hydrated = applyPendingMutations(loaded, pendingMutations.current);
-        setTasks(hydrated);
+        const { removedIds } = await removeTaskIds(
+          repository,
+          expiredCompletedTaskIds(hydrated, new Date()),
+        );
+        if (cancelled) return;
+
+        removedIds.forEach((id) => {
+          pendingMutations.current.push({ type: "delete", id });
+        });
+        const retained = applyPendingMutations(loaded, pendingMutations.current);
+        setTasks(retained);
         initialLoadComplete.current = true;
         pendingMutations.current = [];
-        if (hydrated.length > 0) {
+        if (retained.length > 0) {
           window.dispatchEvent(new Event("noteai:local-data-ready"));
         }
       })
@@ -145,6 +170,22 @@ export function TaskProvider({
           pendingMutations.current.push({ type: "delete", id });
         }
         setTasks((current) => current.filter((task) => task.id !== id));
+      },
+      async clearCompletedTasks() {
+        const completedIds = tasks
+          .filter((task) => task.status === "completed")
+          .map((task) => task.id);
+        const { removedIds, failed } = await removeTaskIds(repository, completedIds);
+        const removedIdSet = new Set(removedIds);
+
+        if (!initialLoadComplete.current) {
+          removedIds.forEach((id) => {
+            pendingMutations.current.push({ type: "delete", id });
+          });
+        }
+        setTasks((current) => current.filter((task) => !removedIdSet.has(task.id)));
+
+        if (failed) throw new Error("Не вдалося очистити історію");
       },
       async reorderInboxTasks(ids) {
         const orderById = new Map(ids.map((id, index) => [id, index]));

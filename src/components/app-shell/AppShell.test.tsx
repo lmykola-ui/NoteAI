@@ -150,6 +150,26 @@ it("moves cleared completed Today tasks to history", async () => {
   expect(screen.getByText("Друга виконана")).toBeVisible();
 });
 
+it("clears completed History tasks only after confirmation", async () => {
+  const user = userEvent.setup();
+  const completed = makeTask({
+    id: "completed",
+    status: "completed",
+    completedAt: new Date().toISOString(),
+  });
+  const active = makeTask({ id: "active" });
+  const repository = createMemoryTaskRepository([completed, active]);
+
+  render(<TaskProvider repository={repository}><AppShell /></TaskProvider>);
+
+  await user.click(screen.getByRole("button", { name: "Відкрити меню" }));
+  await user.click(screen.getByRole("menuitem", { name: "Історія" }));
+  await user.click(screen.getByRole("button", { name: "Очистити історію" }));
+  await user.click(screen.getByRole("button", { name: "Очистити" }));
+
+  expect(repository.saved).toEqual([active]);
+});
+
 it("edits a task from its card in the shared composer", async () => {
   const user = userEvent.setup();
   const repository = createMemoryTaskRepository([makeTask({ title: "Підготувати бриф", description: "До зустрічі" })]);
