@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Sun } from "lucide-react";
 import { addLocalDays } from "@/features/tasks/domain/dateWindow";
 import type { Task } from "@/features/tasks/domain/task";
 import { TaskCard } from "./TaskCard";
@@ -90,7 +91,7 @@ export function UpcomingScreen({ tasks, today, ...actions }: Props) {
                 aria-label="Повернутися до сьогодні"
                 onClick={() => setSelected(today)}
               >
-                ◉
+                <Sun size={16} strokeWidth={2.2} aria-hidden="true" />
               </button>
             ) : null}
           </div>
