@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { readFileSync } from "node:fs";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 import { TaskComposer } from "./TaskComposer";
@@ -13,20 +14,66 @@ it("opens Ukrainian date, time and priority popovers and saves description", asy
   await user.click(screen.getByRole("button", { name: "Сьогодні" }));
   expect(screen.getByRole("dialog", { name: "Вибір дати" })).toBeVisible();
   await user.click(screen.getByRole("button", { name: "Вибрати завтра" }));
-  await user.click(screen.getByRole("button", { name: "Час" }));
+  await user.click(screen.getByRole("button", { name: "Без часу" }));
   expect(screen.getByRole("dialog", { name: "Вибір часу" })).toBeVisible();
   expect(screen.getByLabelText("Години")).toHaveAttribute("size", "3");
   expect(screen.getByLabelText("Хвилини")).toHaveAttribute("size", "3");
   await user.click(screen.getByRole("button", { name: "Застосувати час" }));
-  await user.click(screen.getByRole("button", { name: "Пріоритет" }));
+  await user.click(screen.getByRole("button", { name: "Без пріоритету" }));
   expect(screen.getByRole("dialog", { name: "Вибір пріоритету" })).toBeVisible();
-  expect(screen.getByRole("button", { name: "Висока" }).querySelector("svg")).toHaveClass("lucide-chevrons-up");
-  expect(screen.getByRole("button", { name: "Середня" }).querySelector("svg")).toHaveClass("lucide-chevron-up");
-  expect(screen.getByRole("button", { name: "Мінімальна" }).querySelector("svg")).toHaveClass("lucide-chevron-down");
-  expect(screen.getByRole("button", { name: "Без пріоритету" }).querySelector("svg")).toHaveClass("lucide-minus");
+  const priorityDialog = screen.getByRole("dialog", { name: "Вибір пріоритету" });
+  expect(within(priorityDialog).getByRole("button", { name: "Висока" }).querySelector("svg")).toHaveClass("lucide-chevrons-up");
+  expect(within(priorityDialog).getByRole("button", { name: "Середня" }).querySelector("svg")).toHaveClass("lucide-chevron-up");
+  expect(within(priorityDialog).getByRole("button", { name: "Мінімальна" }).querySelector("svg")).toHaveClass("lucide-chevron-down");
+  expect(within(priorityDialog).getByRole("button", { name: "Без пріоритету" }).querySelector("svg")).toHaveClass("lucide-minus");
   await user.click(screen.getByRole("button", { name: "Середня" }));
   await user.click(screen.getByRole("button", { name: "Зберегти задачу" }));
   expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({ title: "Підготувати бриф", priority: "medium", scheduledDate: "2026-07-22", scheduledTime: "09:00" }));
+});
+
+it("shows the chosen date, time, and priority in the task controls", async () => {
+  const user = userEvent.setup();
+  render(<TaskComposer today="2026-07-21" onClose={vi.fn()} onCreate={vi.fn()} onStartVoice={vi.fn()} />);
+
+  expect(screen.getByRole("button", { name: "Сьогодні" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Без часу" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Без пріоритету" })).toBeVisible();
+
+  await user.click(screen.getByRole("button", { name: "Без часу" }));
+  await user.selectOptions(screen.getByLabelText("Години"), "14");
+  await user.selectOptions(screen.getByLabelText("Хвилини"), "30");
+  await user.click(screen.getByRole("button", { name: "Застосувати час" }));
+  expect(screen.getByRole("button", { name: "14:30" })).toBeVisible();
+
+  await user.click(screen.getByRole("button", { name: "Без пріоритету" }));
+  await user.click(screen.getByRole("button", { name: "Середня" }));
+  expect(screen.getByRole("button", { name: "Середня" })).toBeVisible();
+
+  await user.click(screen.getByRole("button", { name: "Сьогодні" }));
+  fireEvent.change(screen.getByLabelText("Вибрати дату"), { target: { value: "2026-07-30" } });
+  expect(screen.getByRole("button", { name: "30 липня" })).toBeVisible();
+});
+
+it("keeps today available after clearing a date and uses neutral time actions", async () => {
+  const user = userEvent.setup();
+  render(<TaskComposer today="2026-07-21" onClose={vi.fn()} onCreate={vi.fn()} onStartVoice={vi.fn()} />);
+
+  await user.click(screen.getByRole("button", { name: "Сьогодні" }));
+  await user.click(screen.getByRole("button", { name: "Без дати" }));
+  await user.click(screen.getByRole("button", { name: "Без дати" }));
+  await user.click(screen.getByRole("button", { name: "Сьогодні" }));
+  expect(screen.getByRole("button", { name: "Сьогодні" })).toBeVisible();
+
+  await user.click(screen.getByRole("button", { name: "Без часу" }));
+  expect(screen.getByRole("button", { name: "Застосувати час" })).toHaveClass("time-wheel-action");
+  expect(screen.getAllByRole("button", { name: "Без часу" })[1]).toHaveClass("time-wheel-action");
+});
+
+it("does not clip the first date option on a standard-height screen", () => {
+  const styles = readFileSync("src/app/globals.css", "utf8");
+
+  expect(styles).toMatch(/\.task-composer \{[^}]*overflow-y: visible;/);
+  expect(styles).toContain("@media (max-height: 640px) { .task-composer { overflow-y: auto; } }");
 });
 
 it("saves a task for the day after tomorrow", async () => {

@@ -64,5 +64,5 @@ it("removes a stale offline worker and its shell cache during development", asyn
   render(<OfflineInitializer />);
 
   await waitFor(() => expect(unregister).toHaveBeenCalledOnce());
-  expect(deleteCache).toHaveBeenCalledWith("noteai-shell-v1");
+  expect(deleteCache).toHaveBeenCalledWith("noteai-shell-v2");
 });

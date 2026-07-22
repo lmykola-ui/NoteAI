@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-const shellCacheName = "noteai-shell-v1";
+const shellCacheName = "noteai-shell-v2";
 const publicAssetPaths = new Set(["/noteai-sw.js"]);
 
 function isAllowedShellUrl(resourceUrl: string): boolean {
