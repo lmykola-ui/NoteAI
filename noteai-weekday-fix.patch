@@ -1,0 +1,508 @@
+diff --git a/README.md b/README.md
+index f32dba0..00329fb 100644
+--- a/README.md
++++ b/README.md
+@@ -72,11 +72,13 @@ node --env-file=.env scripts/ukrainianModelEval.mjs
+ ```
+ 
+ This paid command is intentionally excluded from `pnpm test` and the default
+-local gate. It calls `OPENAI_MODEL` (default `gpt-5-nano`) once for each
+-of the ten inputs below using the production system prompt and structured-output
+-shape. It must report `10/10 Ukrainian model cases passed.` before promotion.
+-Do not treat the mocked parser-contract test or stubbed Playwright API responses
+-as a substitute.
++local gate. It calls `OPENAI_MODEL` (default `gpt-5-nano`) once for each of
++the eighteen cases in `scripts/ukrainianModelEval.mjs` (that file is the
++authoritative, exhaustive list; the table below highlights the
++date-resolution cases) using the production system prompt and
++structured-output shape. It must report `18/18 Ukrainian model cases
++passed.` before promotion. Do not treat the mocked parser-contract test or
++stubbed Playwright API responses as a substitute.
+ 
+ Keep the key in the gitignored `.env` file created during setup. The
+ `--env-file` form avoids putting the credential value in shell history.
+@@ -99,6 +101,11 @@ The ambiguity case must return zero tasks and one trimmed clarification of
+ | 8 | `Через вісім днів поновити страховку` | 1 renew+insurance task, active, `2026-07-27`, time/priority null; clarification null. |
+ | 9 | `Я вже забрав посилку` | 1 collect/receive+parcel task, completed and undated, time/priority null; clarification null. |
+ | 10 | `Наступної середи о пів на десяту зателефонувати Олені` | 1 call/phone+Olena task, active, `2026-07-22` `09:30`, priority null; clarification null. |
++| 11 | `У вівторок оновити резюме` | 1 update+resume task, active, `2026-07-21`, time/priority null; clarification null. |
++| 12 | `У четвер записатися до стоматолога` | 1 register+dentist task, active, `2026-07-23`, time/priority null; clarification null. |
++| 13 | `У п’ятницю замовити квіти` | 1 order+flowers task, active, `2026-07-24`, time/priority null; clarification null. |
++| 14 | `Наступного вівторка здати документи` | 1 submit+documents task, active, `2026-07-21` (the nearest Tuesday, not a week later), time/priority null; clarification null. |
++| 15 | `Понеділок: підготувати звіт. У понеділок відправити звіт клієнту.` | Exactly 1 send/report+client task, active, `2026-07-20`; no separate task from the "Понеділок:" heading and no title containing "понеділок". |
+ 
+ Run these same exact inputs through the deployed Preview UI and inspect the
+ editable Preview results on physical mobile Chrome and Safari. Both devices
+diff --git a/scripts/ukrainianModelEval.mjs b/scripts/ukrainianModelEval.mjs
+index a940605..d631988 100644
+--- a/scripts/ukrainianModelEval.mjs
++++ b/scripts/ukrainianModelEval.mjs
+@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
+ import OpenAI from "openai";
+ import { zodTextFormat } from "openai/helpers/zod";
+ import { z } from "zod";
++import { buildParseUserMessage } from "../src/server/openai/parseUserMessage.mjs";
+ import { taskSystemPrompt } from "../src/server/openai/taskPrompt.mjs";
+ 
+ const wireResultSchema = z.object({
+@@ -254,6 +255,87 @@ export const ukrainianModelEvalCases = [
+       clarification: "none",
+     },
+   },
++  {
++    name: "weekday accuracy: tuesday",
++    input: "У вівторок оновити резюме",
++    today: "2026-07-19",
++    expected: {
++      tasks: [
++        expectedTask([["оновити", "оновл"], ["резюме"]], {
++          scheduledDate: "2026-07-21",
++          scheduledTime: null,
++          status: "active",
++          priority: null,
++        }),
++      ],
++      clarification: "none",
++    },
++  },
++  {
++    name: "weekday accuracy: thursday",
++    input: "У четвер записатися до стоматолога",
++    today: "2026-07-19",
++    expected: {
++      tasks: [
++        expectedTask([["запис"], ["стоматолог"]], {
++          scheduledDate: "2026-07-23",
++          scheduledTime: null,
++          status: "active",
++          priority: null,
++        }),
++      ],
++      clarification: "none",
++    },
++  },
++  {
++    name: "weekday accuracy: friday",
++    input: "У п’ятницю замовити квіти",
++    today: "2026-07-19",
++    expected: {
++      tasks: [
++        expectedTask([["замов"], ["квіт"]], {
++          scheduledDate: "2026-07-24",
++          scheduledTime: null,
++          status: "active",
++          priority: null,
++        }),
++      ],
++      clarification: "none",
++    },
++  },
++  {
++    name: "weekday accuracy: nastupnoho tuesday is the nearest occurrence",
++    input: "Наступного вівторка здати документи",
++    today: "2026-07-19",
++    expected: {
++      tasks: [
++        expectedTask([["зда"], ["документ"]], {
++          scheduledDate: "2026-07-21",
++          scheduledTime: null,
++          status: "active",
++          priority: null,
++        }),
++      ],
++      clarification: "none",
++    },
++  },
++  {
++    name: "monday heading is not duplicated as its own task",
++    input: "Понеділок: підготувати звіт. У понеділок відправити звіт клієнту.",
++    today: "2026-07-19",
++    expected: {
++      tasks: [
++        expectedTask([["відправ"], ["звіт"]], {
++          scheduledDate: "2026-07-20",
++          scheduledTime: null,
++          status: "active",
++          priority: null,
++          forbiddenTitleTerms: ["понеділок"],
++        }),
++      ],
++      clarification: "none",
++    },
++  },
+ ];
+ 
+ function normalizeTitle(value) {
+@@ -354,7 +436,11 @@ export async function runUkrainianModelEval({ client, model }) {
+             { role: "system", content: taskSystemPrompt },
+             {
+               role: "user",
+-              content: `Локальна дата: ${definition.today}\nЧасовий пояс: Europe/Warsaw\nНотатка: ${definition.input}`,
++              content: buildParseUserMessage({
++                today: definition.today,
++                timeZone: "Europe/Warsaw",
++                text: definition.input,
++              }),
+             },
+           ],
+           text: {
+diff --git a/scripts/ukrainianModelEval.test.ts b/scripts/ukrainianModelEval.test.ts
+index bc98ade..51a78bd 100644
+--- a/scripts/ukrainianModelEval.test.ts
++++ b/scripts/ukrainianModelEval.test.ts
+@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
+ import { existsSync } from "node:fs";
+ import { expect, it, vi } from "vitest";
+ import { ukrainianParserContractCases } from "../tests/fixtures/ukrainian-cases";
++import { buildParseUserMessage } from "../src/server/openai/parseUserMessage.mjs";
+ import {
+   evaluateUkrainianModelCase,
+   resolveUkrainianModel,
+@@ -21,8 +22,8 @@ it("uses the configured OpenAI model and falls back to gpt-5-nano", () => {
+   expect(resolveUkrainianModel({ OPENAI_MODEL: "" })).toBe("gpt-5-nano");
+ });
+ 
+-it("evaluates the exact same thirteen inputs as the mocked parser contract", () => {
+-  expect(ukrainianModelEvalCases).toHaveLength(13);
++it("evaluates the exact same eighteen inputs as the mocked parser contract", () => {
++  expect(ukrainianModelEvalCases).toHaveLength(18);
+   expect(ukrainianModelEvalCases.map(({ input, today }) => ({ input, today }))).toEqual(
+     ukrainianParserContractCases.map(({ input, today }) => ({ input, today })),
+   );
+@@ -124,9 +125,9 @@ it("runs every case through a model-backed structured-output request", async ()
+     model: "configured-model",
+   });
+ 
+-  expect(results).toHaveLength(13);
++  expect(results).toHaveLength(18);
+   expect(results.every(({ issues }) => issues.length === 0)).toBe(true);
+-  expect(parse).toHaveBeenCalledTimes(13);
++  expect(parse).toHaveBeenCalledTimes(18);
+   expect(parse.mock.calls[0]?.[0]).toEqual(
+     expect.objectContaining({
+       model: "configured-model",
+@@ -139,8 +140,11 @@ it("runs every case through a model-backed structured-output request", async ()
+         }),
+         {
+           role: "user",
+-          content:
+-            "Локальна дата: 2026-07-22\nЧасовий пояс: Europe/Warsaw\nНотатка: Треба сходити в магазин і купити каву, молоко та хліб",
++          content: buildParseUserMessage({
++            today: "2026-07-22",
++            timeZone: "Europe/Warsaw",
++            text: "Треба сходити в магазин і купити каву, молоко та хліб",
++          }),
+         },
+       ],
+     }),
+diff --git a/src/server/openai/parseTasks.test.ts b/src/server/openai/parseTasks.test.ts
+index f2fe64f..aa2fc37 100644
+--- a/src/server/openai/parseTasks.test.ts
++++ b/src/server/openai/parseTasks.test.ts
+@@ -1,5 +1,6 @@
+ import { describe, expect, it, vi } from "vitest";
+ import { ukrainianParserContractCases } from "../../../tests/fixtures/ukrainian-cases";
++import { buildParseUserMessage } from "./parseUserMessage.mjs";
+ import { parseTasksWithClient } from "./parseTasks";
+ 
+ const usageMocks = vi.hoisted(() => ({
+@@ -19,8 +20,8 @@ vi.mock("./usageDiagnostics", async (importOriginal) => {
+ });
+ 
+ describe("parseTasksWithClient", () => {
+-  it("keeps the mocked Ukrainian parser contract at thirteen cases", () => {
+-    expect(ukrainianParserContractCases).toHaveLength(13);
++  it("keeps the mocked Ukrainian parser contract at eighteen cases", () => {
++    expect(ukrainianParserContractCases).toHaveLength(18);
+   });
+ 
+   it.each(ukrainianParserContractCases)(
+@@ -50,7 +51,11 @@ describe("parseTasksWithClient", () => {
+         }),
+         {
+           role: "user",
+-          content: `Локальна дата: ${today}\nЧасовий пояс: Europe/Warsaw\nНотатка: ${input}`,
++          content: buildParseUserMessage({
++            today,
++            timeZone: "Europe/Warsaw",
++            text: input,
++          }),
+         },
+       ]);
+       expect(request).toMatchObject({
+diff --git a/src/server/openai/parseTasks.ts b/src/server/openai/parseTasks.ts
+index a3f9429..fec03d3 100644
+--- a/src/server/openai/parseTasks.ts
++++ b/src/server/openai/parseTasks.ts
+@@ -7,6 +7,7 @@ import type {
+   ParseResult,
+ } from "@/features/tasks/domain/task";
+ import { createOpenAIClient, taskModel } from "./client";
++import { buildParseUserMessage } from "./parseUserMessage.mjs";
+ import { taskSystemPrompt } from "./taskPrompt.mjs";
+ import {
+   emitOpenAIUsage,
+@@ -138,10 +139,11 @@ export async function parseTasksWithClient(
+         { role: "system", content: taskSystemPrompt },
+         {
+           role: "user",
+-          content:
+-            `Локальна дата: ${request.today}\n` +
+-            `Часовий пояс: ${request.timeZone}\n` +
+-            `Нотатка: ${request.text}`,
++          content: buildParseUserMessage({
++            today: request.today,
++            timeZone: request.timeZone,
++            text: request.text,
++          }),
+         },
+       ],
+       reasoning: { effort: "minimal" },
+diff --git a/src/server/openai/parseUserMessage.d.mts b/src/server/openai/parseUserMessage.d.mts
+new file mode 100644
+index 0000000..288a6b2
+--- /dev/null
++++ b/src/server/openai/parseUserMessage.d.mts
+@@ -0,0 +1,7 @@
++export function buildWeekdayReferenceBlock(today: string): string;
++
++export function buildParseUserMessage(input: {
++  today: string;
++  timeZone: string;
++  text: string;
++}): string;
+diff --git a/src/server/openai/parseUserMessage.mjs b/src/server/openai/parseUserMessage.mjs
+new file mode 100644
+index 0000000..bbde786
+--- /dev/null
++++ b/src/server/openai/parseUserMessage.mjs
+@@ -0,0 +1,56 @@
++const WEEKDAY_NAMES_UK = [
++  "неділя",
++  "понеділок",
++  "вівторок",
++  "середа",
++  "четвер",
++  "п’ятниця",
++  "субота",
++];
++
++// How many days ahead the weekday lookup table covers. Two full weeks so a
++// "наступний <day>" mention always has an unambiguous row to match against,
++// even for the weekday that equals `today` itself.
++const WEEKDAY_TABLE_DAYS_AHEAD = 13;
++
++function pad2(value) {
++  return String(value).padStart(2, "0");
++}
++
++function addDaysToIsoDate(isoDate, days) {
++  const date = new Date(`${isoDate}T00:00:00.000Z`);
++  date.setUTCDate(date.getUTCDate() + days);
++  return `${date.getUTCFullYear()}-${pad2(date.getUTCMonth() + 1)}-${pad2(date.getUTCDate())}`;
++}
++
++function weekdayNameForIsoDate(isoDate) {
++  const date = new Date(`${isoDate}T00:00:00.000Z`);
++  return WEEKDAY_NAMES_UK[date.getUTCDay()];
++}
++
++/**
++ * Builds a deterministic "date = weekday name" lookup table starting at
++ * `today`. The model must resolve every weekday mention (понеділок, у
++ * суботу, наступної середи, etc.) by matching a row here instead of doing
++ * its own day-of-week arithmetic, which is the source of off-by-one errors.
++ */
++export function buildWeekdayReferenceBlock(today) {
++  const lines = [];
++  for (let offset = 0; offset <= WEEKDAY_TABLE_DAYS_AHEAD; offset += 1) {
++    const isoDate = addDaysToIsoDate(today, offset);
++    const weekday = weekdayNameForIsoDate(isoDate);
++    const marker = offset === 0 ? " (сьогодні)" : offset === 1 ? " (завтра)" : "";
++    lines.push(`${isoDate} = ${weekday}${marker}`);
++  }
++  return lines.join("\n");
++}
++
++export function buildParseUserMessage({ today, timeZone, text }) {
++  return (
++    `Локальна дата: ${today}\n` +
++    `Часовий пояс: ${timeZone}\n` +
++    `Дні тижня (використовуй лише цю таблицю для будь-якого дня тижня; не обчислюй день тижня самостійно):\n` +
++    `${buildWeekdayReferenceBlock(today)}\n` +
++    `Нотатка: ${text}`
++  );
++}
+diff --git a/src/server/openai/parseUserMessage.test.ts b/src/server/openai/parseUserMessage.test.ts
+new file mode 100644
+index 0000000..1a61618
+--- /dev/null
++++ b/src/server/openai/parseUserMessage.test.ts
+@@ -0,0 +1,58 @@
++import { describe, expect, it } from "vitest";
++import {
++  buildParseUserMessage,
++  buildWeekdayReferenceBlock,
++} from "./parseUserMessage.mjs";
++
++describe("buildWeekdayReferenceBlock", () => {
++  it("maps every day of a Sunday-anchored week to the correct date and label", () => {
++    const block = buildWeekdayReferenceBlock("2026-07-19");
++    const lines = block.split("\n");
++
++    expect(lines[0]).toBe("2026-07-19 = неділя (сьогодні)");
++    expect(lines[1]).toBe("2026-07-20 = понеділок (завтра)");
++    expect(lines[2]).toBe("2026-07-21 = вівторок");
++    expect(lines[3]).toBe("2026-07-22 = середа");
++    expect(lines[4]).toBe("2026-07-23 = четвер");
++    expect(lines[5]).toBe("2026-07-24 = п’ятниця");
++    expect(lines[6]).toBe("2026-07-25 = субота");
++    expect(lines[7]).toBe("2026-07-26 = неділя");
++    // The following-week row must exist so "наступний понеділок" phrasing
++    // always resolves to a same-week date, never accidentally the row below.
++    expect(lines[8]).toBe("2026-07-27 = понеділок");
++  });
++
++  it("does not drift by one day across a month boundary", () => {
++    const block = buildWeekdayReferenceBlock("2026-07-31");
++    const lines = block.split("\n");
++
++    expect(lines[0]).toBe("2026-07-31 = п’ятниця (сьогодні)");
++    expect(lines[1]).toBe("2026-08-01 = субота (завтра)");
++    expect(lines[2]).toBe("2026-08-02 = неділя");
++  });
++
++  it("covers at least two weeks so every weekday name has an unambiguous row", () => {
++    const block = buildWeekdayReferenceBlock("2026-07-19");
++    const lines = block.split("\n");
++
++    expect(lines).toHaveLength(14);
++  });
++});
++
++describe("buildParseUserMessage", () => {
++  it("embeds the weekday table between the date fields and the note text", () => {
++    const message = buildParseUserMessage({
++      today: "2026-07-19",
++      timeZone: "Europe/Warsaw",
++      text: "У понеділок оновити резюме",
++    });
++
++    expect(message).toBe(
++      "Локальна дата: 2026-07-19\n" +
++        "Часовий пояс: Europe/Warsaw\n" +
++        "Дні тижня (використовуй лише цю таблицю для будь-якого дня тижня; не обчислюй день тижня самостійно):\n" +
++        `${buildWeekdayReferenceBlock("2026-07-19")}\n` +
++        "Нотатка: У понеділок оновити резюме",
++    );
++  });
++});
+diff --git a/src/server/openai/taskPrompt.mjs b/src/server/openai/taskPrompt.mjs
+index 08e5084..4772948 100644
+--- a/src/server/openai/taskPrompt.mjs
++++ b/src/server/openai/taskPrompt.mjs
+@@ -1,8 +1,10 @@
+ export const taskSystemPrompt = `Ти аналізуєш українські нотатки та повертаєш лише структуровані задачі.
+ Використовуй передану локальну дату як основу для “сьогодні” і “завтра”.
++Для будь-якої назви дня тижня в будь-якій відмінковій формі (понеділок/понеділка/у понеділок, вівторок, середа/середи, четвер, п’ятниця/п’ятниці, субота, неділя/неділю) НІКОЛИ не обчислюй дату сам — завжди знаходь відповідний рядок у наданій таблиці “Дні тижня” і бери дату звідти. Це стосується і фраз із “наступний/наступна/наступного/наступної” (“наступний понеділок”, “наступної середи”): вони позначають саме ту найближчу дату цього дня тижня, що вказана в таблиці, — ту саму дату, що й без слова “наступний”, а не тиждень по тому.
+ Не вигадуй дату, час, статус або пріоритет. Якщо дія справді неоднозначна, поверни одне коротке уточнення.
+ Розділяй кілька справ на окремі задачі. Фраза про вже зроблену справу має status=completed.
+ Кожен title має описувати лише одну коротку атомарну дію. Не повторюй спільний вступ, назву схеми чи інший контекст нотатки в кожному title. Не додавай дату, час, статус або пріоритет у title, якщо вони вже записані в окремих структурованих полях.
+ Розрізняй самостійні задачі та підкроки однієї задачі. Якщо перелік — це деталі або кроки для досягнення однієї цілі, створи одну задачу з коротким title, а елементи переліку запиши в description з нового рядка, кожен з маркером «•». Приклад: «Сходити в магазин і купити каву, молоко та хліб» → title «Сходити в магазин», description «• Кава\\n• Молоко\\n• Хліб». Так само догляд за обличчям з кроками вмитися та нанести крем — одна задача з цими кроками в description.
+ Якщо перелічені елементи є окремими результатами, які можна виконати незалежно, створи окрему задачу для кожного. Приклад: «Зробити перший, другий і третій шаблони» → три окремі задачі.
++Якщо назва дня тижня або тема нотатки згадана окремим вступним рядком чи заголовком (наприклад «Понеділок:» перед описом дії), це не самостійна задача — не створюй для заголовка чи вступу окрему задачу. Перенеси дату з цього заголовка чи вступу на єдину задачу, що описує саму дію, і не повторюй ту саму дію в другій задачі. Приклад: «Понеділок: підготувати звіт. У понеділок відправити звіт клієнту» → одна задача «Відправити звіт клієнту» з датою понеділка, без окремої задачі «Понеділок» чи «Підготувати звіт».
+ Приклад: “Схема: зробити три шаблони (перший — пріоритетний, другий — середній, третій — низька пріоритетність)” → “Зробити перший шаблон” priority=high; “Зробити другий шаблон” priority=medium; “Зробити третій шаблон” priority=low.`;
+diff --git a/tests/fixtures/ukrainian-cases.ts b/tests/fixtures/ukrainian-cases.ts
+index afb3adc..8f4969c 100644
+--- a/tests/fixtures/ukrainian-cases.ts
++++ b/tests/fixtures/ukrainian-cases.ts
+@@ -274,4 +274,89 @@ export const ukrainianParserContractCases = [
+       clarification: null,
+     },
+   }),
++  parserContractCase({
++    name: "resolves Tuesday from the weekday table without off-by-one drift",
++    input: "У вівторок оновити резюме",
++    today: "2026-07-19",
++    modelOutput: {
++      tasks: [
++        {
++          title: "Оновити резюме",
++          scheduledDate: "2026-07-21",
++          scheduledTime: null,
++          status: "active",
++          priority: null,
++        },
++      ],
++      clarification: null,
++    },
++  }),
++  parserContractCase({
++    name: "resolves Thursday from the weekday table without off-by-one drift",
++    input: "У четвер записатися до стоматолога",
++    today: "2026-07-19",
++    modelOutput: {
++      tasks: [
++        {
++          title: "Записатися до стоматолога",
++          scheduledDate: "2026-07-23",
++          scheduledTime: null,
++          status: "active",
++          priority: null,
++        },
++      ],
++      clarification: null,
++    },
++  }),
++  parserContractCase({
++    name: "resolves Friday from the weekday table without off-by-one drift",
++    input: "У п’ятницю замовити квіти",
++    today: "2026-07-19",
++    modelOutput: {
++      tasks: [
++        {
++          title: "Замовити квіти",
++          scheduledDate: "2026-07-24",
++          scheduledTime: null,
++          status: "active",
++          priority: null,
++        },
++      ],
++      clarification: null,
++    },
++  }),
++  parserContractCase({
++    name: "resolves наступного вівторка to the nearest occurrence, not a week later",
++    input: "Наступного вівторка здати документи",
++    today: "2026-07-19",
++    modelOutput: {
++      tasks: [
++        {
++          title: "Здати документи",
++          scheduledDate: "2026-07-21",
++          scheduledTime: null,
++          status: "active",
++          priority: null,
++        },
++      ],
++      clarification: null,
++    },
++  }),
++  parserContractCase({
++    name: "collapses a weekday heading and its matching action into one task",
++    input: "Понеділок: підготувати звіт. У понеділок відправити звіт клієнту.",
++    today: "2026-07-19",
++    modelOutput: {
++      tasks: [
++        {
++          title: "Відправити звіт клієнту",
++          scheduledDate: "2026-07-20",
++          scheduledTime: null,
++          status: "active",
++          priority: null,
++        },
++      ],
++      clarification: null,
++    },
++  }),
+ ] satisfies UkrainianParserContractCase[];
