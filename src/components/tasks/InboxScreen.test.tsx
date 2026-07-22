@@ -179,3 +179,14 @@ it("does not mix completed tasks into Inbox", () => {
 
   expect(screen.queryByText(completed.title)).not.toBeInTheDocument();
 });
+
+it("waits for completion feedback before completing an Inbox task", async () => {
+  vi.useFakeTimers();
+  const onComplete = vi.fn();
+  render(<InboxScreen tasks={[undated]} today="2026-07-19" {...actions} onComplete={onComplete} />);
+  fireEvent.click(screen.getByRole("button", { name: /Позначити.*виконаною/ }));
+  expect(onComplete).not.toHaveBeenCalled();
+  await act(async () => { await vi.advanceTimersByTimeAsync(360); });
+  expect(onComplete).toHaveBeenCalledWith(undated.id);
+  vi.useRealTimers();
+});

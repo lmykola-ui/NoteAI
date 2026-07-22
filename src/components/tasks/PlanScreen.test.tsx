@@ -49,8 +49,10 @@ it("celebrates completion and lets people reveal completed tasks", async () => {
   expect(screen.getByRole("heading", { name: "Вітаємо!" })).toBeVisible();
   expect(screen.getByText("Сьогодні всі плани виконані")).toBeVisible();
   expect(screen.getByRole("button", { name: "Показати виконані (2)" })).toBeVisible();
+  expect(screen.queryByRole("list", { name: "Виконані задачі сьогодні" })).not.toBeInTheDocument();
 
   await user.click(screen.getByRole("button", { name: "Показати виконані (2)" }));
 
   expect(screen.getByRole("button", { name: "Сховати виконані (2)" })).toBeVisible();
+  expect(screen.getByRole("list", { name: "Виконані задачі сьогодні" })).toBeVisible();
 });
