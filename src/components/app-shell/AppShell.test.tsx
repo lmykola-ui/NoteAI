@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { TaskProvider } from "@/features/tasks/application/TaskProvider";
@@ -87,6 +87,34 @@ it("opens Inbox and switches between exactly three destinations", async () => {
 
   await user.click(screen.getByRole("button", { name: "Заплановані" }));
   expect(screen.getByRole("heading", { name: "Заплановані" })).toBeVisible();
+});
+
+it("keeps Today open after saving a task with a future date", async () => {
+  const user = userEvent.setup();
+  render(<TaskProvider repository={createMemoryTaskRepository()}><AppShell /></TaskProvider>);
+
+  await user.click(screen.getByRole("button", { name: "Сьогодні" }));
+  await user.click(screen.getByRole("button", { name: "Додати задачу" }));
+  await user.type(screen.getByLabelText("Що потрібно зробити?"), "Запланувати дзвінок");
+  await user.click(within(screen.getByRole("dialog", { name: "Нова задача" })).getByRole("button", { name: "Сьогодні" }));
+  fireEvent.change(screen.getByLabelText("Вибрати дату"), { target: { value: "2026-07-23" } });
+  await user.click(screen.getByRole("button", { name: "Зберегти задачу" }));
+
+  expect(await screen.findByRole("heading", { name: "Сьогодні" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Сьогодні" })).toHaveAttribute("aria-current", "page");
+});
+
+it("keeps Planned open after saving a task", async () => {
+  const user = userEvent.setup();
+  render(<TaskProvider repository={createMemoryTaskRepository()}><AppShell /></TaskProvider>);
+
+  await user.click(screen.getByRole("button", { name: "Заплановані" }));
+  await user.click(screen.getByRole("button", { name: "Додати задачу" }));
+  await user.type(screen.getByLabelText("Що потрібно зробити?"), "Забронювати зустріч");
+  await user.click(screen.getByRole("button", { name: "Зберегти задачу" }));
+
+  expect(await screen.findByRole("heading", { name: "Заплановані" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Заплановані" })).toHaveAttribute("aria-current", "page");
 });
 
 it("opens an overflow menu before showing history", async () => {
