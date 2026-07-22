@@ -39,7 +39,9 @@ it("offers a quick return to today after selecting another date", async () => {
 
   expect(screen.queryByRole("button", { name: "Повернутися до сьогодні" })).not.toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Обрати 22 липень" }));
-  await user.click(screen.getByRole("button", { name: "Повернутися до сьогодні" }));
+  const returnToToday = screen.getByRole("button", { name: "Повернутися до сьогодні" });
+  expect(returnToToday.querySelector("svg")).toHaveClass("lucide-sun");
+  await user.click(returnToToday);
 
   expect(screen.getByRole("button", { name: "Обрати 21 липень" })).toHaveAttribute("aria-pressed", "true");
 });
