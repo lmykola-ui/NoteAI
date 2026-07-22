@@ -71,7 +71,7 @@ button, textarea, input { font: inherit; }
 .task-card-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .task-card-heading h2 { margin: 0; font-size: 1.1rem; }
 .task-card-heading span, .task-overdue { color: #ffc0bd; }
-.task-description { display: -webkit-box; margin: 5px 0 0; overflow: hidden; color: #c6cbd0; font-size: .94rem; line-height: 1.4; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }.task-meta, .empty-state { margin: 7px 0 0; color: var(--color-muted); }.task-meta { display: flex; align-items: center; gap: 6px; font-size: .88rem; }
+.task-description { display: -webkit-box; margin: 5px 0 0; overflow: hidden; color: #c6cbd0; font-size: .94rem; line-height: 1.4; white-space: pre-line; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }.task-meta, .empty-state { margin: 7px 0 0; color: var(--color-muted); }.task-meta { display: flex; align-items: center; gap: 6px; font-size: .88rem; }
 .task-overdue { margin: 0; font-weight: 700; }
 .completed-tasks { display: grid; gap: 12px; }
 .completed-tasks summary { cursor: pointer; color: var(--color-muted); }

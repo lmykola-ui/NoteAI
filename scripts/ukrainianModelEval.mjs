@@ -9,6 +9,7 @@ const wireResultSchema = z.object({
     .array(
       z.object({
         title: z.string().min(1).max(300),
+        description: z.string().max(2_000).nullable().optional(),
         scheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
         scheduledTime: z.string().regex(/^\d{2}:\d{2}$/).nullable(),
         status: z.enum(["active", "completed"]),
@@ -24,6 +25,40 @@ function expectedTask(titleConcepts, fields) {
 }
 
 export const ukrainianModelEvalCases = [
+  {
+    name: "grouped shopping details",
+    input: "Треба сходити в магазин і купити каву, молоко та хліб",
+    today: "2026-07-22",
+    expected: {
+      tasks: [
+        expectedTask([["сход"], ["магазин"]], {
+          descriptionConcepts: [["кава"], ["молок"], ["хліб"]],
+          scheduledDate: null,
+          scheduledTime: null,
+          status: "active",
+          priority: null,
+        }),
+      ],
+      clarification: "none",
+    },
+  },
+  {
+    name: "grouped self-care steps",
+    input: "Зробити догляд за обличчям: вмитися, нанести сироватку і крем",
+    today: "2026-07-22",
+    expected: {
+      tasks: [
+        expectedTask([["догляд"], ["облич"]], {
+          descriptionConcepts: [["вмит"], ["сироват"], ["крем"]],
+          scheduledDate: null,
+          scheduledTime: null,
+          status: "active",
+          priority: null,
+        }),
+      ],
+      clarification: "none",
+    },
+  },
   {
     name: "today tomorrow and completed",
     input:
@@ -253,6 +288,7 @@ export function evaluateUkrainianModelCase(definition, actual) {
     if (!actualTask) return;
     const taskNumber = index + 1;
     const normalizedTitle = normalizeTitle(actualTask.title ?? "");
+    const normalizedDescription = normalizeTitle(actualTask.description ?? "");
 
     expectedTaskDefinition.titleConcepts.forEach((alternatives) => {
       if (!alternatives.some((term) => normalizedTitle.includes(term))) {
@@ -261,6 +297,14 @@ export function evaluateUkrainianModelCase(definition, actual) {
         );
       }
     });
+
+    for (const alternatives of expectedTaskDefinition.descriptionConcepts ?? []) {
+      if (!alternatives.some((term) => normalizedDescription.includes(term))) {
+        issues.push(
+          `task ${taskNumber} description: expected one of [${alternatives.join(", ")}]`,
+        );
+      }
+    }
 
     for (const forbiddenTerm of expectedTaskDefinition.forbiddenTitleTerms ?? []) {
       if (normalizedTitle.includes(forbiddenTerm)) {
