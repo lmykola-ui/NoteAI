@@ -90,6 +90,7 @@ function normalizeAIResult(
     .flatMap((task) => {
       const title = task.title.trim().slice(0, 300);
       const description = task.description?.trim().slice(0, 2_000);
+      const hasDescription = description && description.toLowerCase() !== "unspecified";
       if (!title) {
         return [];
       }
@@ -97,7 +98,7 @@ function normalizeAIResult(
       return [
         {
           title,
-          ...(description ? { description } : {}),
+          ...(hasDescription ? { description } : {}),
           scheduledDate:
             task.scheduledDate && isCalendarDate(task.scheduledDate)
               ? task.scheduledDate
