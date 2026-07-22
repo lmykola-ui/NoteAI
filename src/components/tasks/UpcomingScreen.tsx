@@ -148,7 +148,7 @@ export function UpcomingScreen({ tasks, today, ...actions }: Props) {
               </h2>
               {dayTasks.length ? (
                 <div className="task-list">
-                  {dayTasks.map((task) => <TaskCard key={task.id} task={task} today={today} {...actions} />)}
+                  {dayTasks.map((task) => <TaskCard key={task.id} task={task} today={today} {...actions} onComplete={() => undefined} onCompletionAnimationEnd={actions.onComplete} />)}
                 </div>
               ) : null}
             </section>
