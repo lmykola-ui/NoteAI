@@ -56,7 +56,7 @@ it("calculates today progress from every task scheduled for the day", () => {
   expect(screen.getByRole("img", { name: "Емоція прогресу: 0–25%" })).toBeVisible();
 });
 
-it("shows compact completed controls and clears only today's completed tasks", async () => {
+it("celebrates completion, shows completed controls, and clears only today's completed tasks", async () => {
   const user = userEvent.setup();
   const onClearCompleted = vi.fn();
   const tasks = [
@@ -66,8 +66,8 @@ it("shows compact completed controls and clears only today's completed tasks", a
 
   render(<PlanScreen tasks={tasks} today="2026-07-19" {...actions} onClearCompleted={onClearCompleted} />);
 
-  expect(screen.queryByRole("heading", { name: "Вітаємо!" })).not.toBeInTheDocument();
-  expect(screen.queryByText("100%")).not.toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Вітаємо!" })).toBeVisible();
+  expect(screen.getByText("Сьогодні всі плани виконані")).toBeVisible();
   expect(screen.getByRole("button", { name: "Показати виконані (2)" })).toBeVisible();
   expect(screen.getByRole("button", { name: "Очистити" })).toBeVisible();
   expect(screen.queryByRole("list", { name: "Виконані задачі сьогодні" })).not.toBeInTheDocument();

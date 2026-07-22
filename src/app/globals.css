@@ -49,13 +49,19 @@ button, textarea, input { font: inherit; }
 .today-progress-track { height: 9px; overflow: hidden; border-radius: 999px; background: #30363c; }
 .today-progress-fill { display: block; height: 100%; min-width: 0; border-radius: inherit; background: #eef0ec; transition: width 520ms cubic-bezier(.22, 1, .36, 1); }
 .today-emotion-panel { display: grid; min-height: 112px; place-items: center; overflow: hidden; }
-.today-emotion-cat { display: block; width: 82px; height: 82px; object-fit: contain; mix-blend-mode: screen; filter: grayscale(1) invert(1) contrast(1.1); }
+.today-emotion-cat, .today-celebration-cat { display: block; width: 82px; height: 82px; object-fit: contain; mix-blend-mode: screen; filter: grayscale(1) invert(1) contrast(1.1); }
+.today-celebration { display: flex; min-height: 128px; align-items: center; gap: 16px; padding: 17px 19px; animation: today-celebration-in 440ms cubic-bezier(.22, 1, .36, 1); }
+.today-celebration-cat { flex: 0 0 auto; width: 92px; height: 92px; animation: today-cat-celebrates 1.9s ease-in-out both; }
+.today-celebration h2 { margin: 0; font-size: 1.7rem; letter-spacing: -.035em; }
+.today-celebration p { margin: 5px 0 0; color: #d8ddda; font-size: 1rem; font-weight: 700; line-height: 1.35; }
 .today-task-list { overflow: hidden; max-height: 2000px; opacity: 1; transform: translateY(0); transition: max-height 480ms cubic-bezier(.22, 1, .36, 1), opacity 250ms ease, transform 400ms cubic-bezier(.22, 1, .36, 1); }
 .today-task-list--collapsed { max-height: 0; opacity: 0; pointer-events: none; transform: translateY(-8px); }
 .today-completed-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .today-completed-actions .today-completed-toggle { justify-self: auto; }
 .today-completed-toggle { justify-self: center; border: 0; padding: 6px 3px; color: var(--color-muted); background: transparent; font-size: .9rem; font-weight: 700; cursor: pointer; }
 .today-completed-toggle:hover, .today-completed-toggle:focus-visible { color: var(--color-text); text-decoration: underline; text-underline-offset: 3px; }
+@keyframes today-celebration-in { from { opacity: 0; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes today-cat-celebrates { 0%, 100% { transform: translateY(0) rotate(0); } 25% { transform: translateY(-5px) rotate(-2deg); } 50% { transform: translateY(0) rotate(2deg); } 75% { transform: translateY(-3px) rotate(-1deg); } }
 .inbox-task { touch-action: pan-y; transition: transform 180ms cubic-bezier(.22, 1, .36, 1), opacity 180ms ease, filter 180ms ease; }
 .inbox-task--dragging { position: relative; z-index: 2; opacity: .72; filter: brightness(1.12); transform: scale(.985); }
 .inbox-drop-marker { height: 3px; margin: -5px 14px; border-radius: 999px; background: #eef0ec; box-shadow: 0 0 0 1px #ffffff1f; animation: inbox-marker-in 180ms cubic-bezier(.22, 1, .36, 1); }
@@ -94,6 +100,7 @@ button, textarea, input { font: inherit; }
 @media (max-height: 640px) { .task-composer { overflow-y: auto; } }
 
 @media (prefers-reduced-motion: reduce) {
+  .today-celebration, .today-celebration-cat { animation: none; }
   .today-progress-fill, .today-task-list, .task-card { transition: none; }
   .task-card--completing { animation: none; }
 }
