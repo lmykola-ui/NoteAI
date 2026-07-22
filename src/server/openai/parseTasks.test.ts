@@ -179,6 +179,40 @@ describe("parseTasksWithClient", () => {
     });
   });
 
+  it("omits an unspecified description from a basic task", async () => {
+    const parse = vi.fn().mockResolvedValue({
+      output_parsed: {
+        tasks: [{
+          title: "Сходити в магазин",
+          description: " unspecified ",
+          scheduledDate: null,
+          scheduledTime: null,
+          status: "active",
+          priority: null,
+        }],
+        clarification: null,
+      },
+    });
+    const client = { responses: { parse } } as unknown as Parameters<typeof parseTasksWithClient>[0];
+
+    await expect(parseTasksWithClient(client, {
+      text: "Сходити в магазин",
+      today: "2026-07-22",
+      timeZone: "Europe/Warsaw",
+      inputMethod: "text",
+    })).resolves.toEqual({
+      tasks: [{
+        title: "Сходити в магазин",
+        scheduledDate: null,
+        scheduledTime: null,
+        status: "active",
+        priority: null,
+        inputMethod: "text",
+      }],
+      clarification: null,
+    });
+  });
+
   it("fails closed when no parsed payload is returned", async () => {
     const parse = vi.fn().mockResolvedValue({ output_parsed: null });
     const client = {

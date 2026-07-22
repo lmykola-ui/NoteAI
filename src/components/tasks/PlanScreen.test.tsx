@@ -22,6 +22,15 @@ it("orders timed today tasks before untimed tasks", () => {
   expect(screen.getAllByRole("article").map((card) => card.getAttribute("aria-label"))).toEqual(["Раніше", "Без часу"]);
 });
 
+it("keeps active tasks above completed tasks regardless of their scheduled time", () => {
+  const active = makeTask({ id: "active", title: "Активна", scheduledDate: "2026-07-19", scheduledTime: "18:00" });
+  const completed = makeTask({ id: "completed", title: "Виконана", scheduledDate: "2026-07-19", scheduledTime: "09:00", status: "completed" });
+
+  render(<PlanScreen tasks={[completed, active]} today="2026-07-19" {...actions} />);
+
+  expect(screen.getAllByRole("article").map((card) => card.getAttribute("aria-label"))).toEqual(["Активна", "Виконана"]);
+});
+
 it("calculates today progress from every task scheduled for the day", () => {
   const tasks = [
     makeTask({ id: "one", scheduledDate: "2026-07-19", status: "completed" }),
@@ -55,4 +64,5 @@ it("celebrates completion and lets people reveal completed tasks", async () => {
 
   expect(screen.getByRole("button", { name: "Сховати виконані (2)" })).toBeVisible();
   expect(screen.getByRole("list", { name: "Виконані задачі сьогодні" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Сховати виконані (2)" }).compareDocumentPosition(screen.getByRole("list", { name: "Виконані задачі сьогодні" }))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
 });

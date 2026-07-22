@@ -14,6 +14,9 @@ type PlanScreenProps = {
 };
 
 export function comparePlanTasks(a: Task, b: Task): number {
+  if (a.status !== b.status) {
+    return a.status === "active" ? -1 : 1;
+  }
   if (a.scheduledTime && b.scheduledTime) {
     return a.scheduledTime.localeCompare(b.scheduledTime);
   }
@@ -68,18 +71,18 @@ export function PlanScreen({ tasks, today, ...actions }: PlanScreenProps) {
             </section>
           )}
 
+          {allComplete ? (
+            <button type="button" className="today-completed-toggle" onClick={() => setRevealedDate((value) => value === today ? null : today)}>
+              {showCompleted ? `Сховати виконані (${completedCount})` : `Показати виконані (${completedCount})`}
+            </button>
+          ) : null}
+
           {(!allComplete || showCompleted) ? (
             <div role={allComplete ? "list" : undefined} aria-label={allComplete ? "Виконані задачі сьогодні" : undefined} className="task-list today-task-list">
               {selectedTasks.map((task) => (
                 <TaskCard key={task.id} task={task} today={today} {...actions} />
               ))}
             </div>
-          ) : null}
-
-          {allComplete ? (
-            <button type="button" className="today-completed-toggle" onClick={() => setRevealedDate((value) => value === today ? null : today)}>
-              {showCompleted ? `Сховати виконані (${completedCount})` : `Показати виконані (${completedCount})`}
-            </button>
           ) : null}
         </>
       ) : (
