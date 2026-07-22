@@ -254,6 +254,70 @@ export const ukrainianModelEvalCases = [
       clarification: "none",
     },
   },
+  {
+    name: "omits description and priority when neither is stated",
+    input: "Сходити в магазин",
+    today: "2026-07-22",
+    expected: {
+      tasks: [
+        expectedTask([["сход"], ["магазин"]], {
+          scheduledDate: null,
+          scheduledTime: null,
+          status: "active",
+          priority: null,
+        }),
+      ],
+      clarification: "none",
+    },
+  },
+  {
+    name: "maps very important language to high priority",
+    input: "Дуже важливо надіслати договір",
+    today: "2026-07-22",
+    expected: {
+      tasks: [
+        expectedTask([["надісл"], ["догов"]], {
+          scheduledDate: null,
+          scheduledTime: null,
+          status: "active",
+          priority: "high",
+        }),
+      ],
+      clarification: "none",
+    },
+  },
+  {
+    name: "maps important language to medium priority",
+    input: "Важливо перевірити кошторис",
+    today: "2026-07-22",
+    expected: {
+      tasks: [
+        expectedTask([["перевір"], ["кошторис"]], {
+          scheduledDate: null,
+          scheduledTime: null,
+          status: "active",
+          priority: "medium",
+        }),
+      ],
+      clarification: "none",
+    },
+  },
+  {
+    name: "maps non-urgent language to low priority",
+    input: "Можна пізніше розібрати пошту",
+    today: "2026-07-22",
+    expected: {
+      tasks: [
+        expectedTask([["розбір", "розіб"], ["пошт"]], {
+          scheduledDate: null,
+          scheduledTime: null,
+          status: "active",
+          priority: "low",
+        }),
+      ],
+      clarification: "none",
+    },
+  },
 ];
 
 function normalizeTitle(value) {

@@ -19,8 +19,8 @@ vi.mock("./usageDiagnostics", async (importOriginal) => {
 });
 
 describe("parseTasksWithClient", () => {
-  it("keeps the mocked Ukrainian parser contract at thirteen cases", () => {
-    expect(ukrainianParserContractCases).toHaveLength(13);
+  it("keeps the mocked Ukrainian parser contract at seventeen cases", () => {
+    expect(ukrainianParserContractCases).toHaveLength(17);
   });
 
   it.each(ukrainianParserContractCases)(
@@ -45,7 +45,7 @@ describe("parseTasksWithClient", () => {
         expect.objectContaining({
           role: "system",
           content: expect.stringMatching(
-            /атомарну дію[\s\S]*не повторюй спільний вступ[\s\S]*не додавай.*пріоритет.*title/i,
+            /не вигадуй.*пріоритет[\s\S]*description[\s\S]*unspecified[\s\S]*пріоритет.*null[\s\S]*дуже важливо.*high[\s\S]*важливо.*medium[\s\S]*можна пізніше.*low/i,
           ),
         }),
         {

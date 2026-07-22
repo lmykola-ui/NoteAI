@@ -274,4 +274,72 @@ export const ukrainianParserContractCases = [
       clarification: null,
     },
   }),
+  parserContractCase({
+    name: "omits description and priority when neither is stated",
+    input: "Сходити в магазин",
+    today: "2026-07-22",
+    modelOutput: {
+      tasks: [
+        {
+          title: "Сходити в магазин",
+          scheduledDate: null,
+          scheduledTime: null,
+          status: "active",
+          priority: null,
+        },
+      ],
+      clarification: null,
+    },
+  }),
+  parserContractCase({
+    name: "maps very important language to high priority",
+    input: "Дуже важливо надіслати договір",
+    today: "2026-07-22",
+    modelOutput: {
+      tasks: [
+        {
+          title: "Надіслати договір",
+          scheduledDate: null,
+          scheduledTime: null,
+          status: "active",
+          priority: "high",
+        },
+      ],
+      clarification: null,
+    },
+  }),
+  parserContractCase({
+    name: "maps important language to medium priority",
+    input: "Важливо перевірити кошторис",
+    today: "2026-07-22",
+    modelOutput: {
+      tasks: [
+        {
+          title: "Перевірити кошторис",
+          scheduledDate: null,
+          scheduledTime: null,
+          status: "active",
+          priority: "medium",
+        },
+      ],
+      clarification: null,
+    },
+  }),
+  parserContractCase({
+    name: "maps non-urgent language to low priority",
+    input: "Можна пізніше розібрати пошту",
+    today: "2026-07-22",
+    modelOutput: {
+      tasks: [
+        {
+          title: "Розібрати пошту",
+          scheduledDate: null,
+          scheduledTime: null,
+          status: "active",
+          priority: "low",
+        },
+      ],
+      clarification: null,
+    },
+  }),
 ] satisfies UkrainianParserContractCase[];
