@@ -38,6 +38,9 @@ button, textarea, input { font: inherit; }
 .capture-error { color: #ffc0bd; background: #4f292d; }
 .task-screen { display: grid; gap: 16px; }
 .task-screen h1 { margin: 0; font-size: 2rem; }
+.empty-task-state { display: grid; min-height: calc(100dvh - 270px); align-content: center; justify-items: center; gap: 8px; text-align: center; }
+.empty-task-state img { width: min(78vw, 310px); height: auto; }
+.empty-task-state p { max-width: 250px; margin: 0; color: var(--color-muted); font-size: 1rem; font-weight: 600; line-height: 1.4; }
 .task-list { display: grid; gap: 12px; }
 .today-status { display: grid; grid-template-columns: minmax(0, 1fr) 88px; gap: 12px; }
 .today-progress-panel, .today-emotion-panel, .today-celebration { border: 1px solid #30363c; border-radius: var(--radius-card); background: var(--color-surface); }

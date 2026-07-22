@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import type { Task } from "@/features/tasks/domain/task";
+import { EmptyTaskState } from "./EmptyTaskState";
 import { TaskCard } from "./TaskCard";
 
 type PlanScreenProps = {
@@ -83,7 +84,7 @@ export function PlanScreen({ tasks, today, ...actions }: PlanScreenProps) {
           ) : null}
         </>
       ) : (
-        <p className="empty-state">На сьогодні задач немає.</p>
+        <EmptyTaskState message="Що сьогодні тобі треба зробити?" />
       )}
     </section>
   );

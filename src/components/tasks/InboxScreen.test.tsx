@@ -180,6 +180,16 @@ it("does not mix completed tasks into Inbox", () => {
   expect(screen.queryByText(completed.title)).not.toBeInTheDocument();
 });
 
+it("shows the empty Inbox prompt when there are no active tasks", () => {
+  render(<InboxScreen tasks={[]} today="2026-07-19" {...actions} />);
+
+  expect(screen.getByText("Запиши зараз, сплануй потім")).toBeVisible();
+  expect(screen.getByAltText("")).toHaveAttribute(
+    "src",
+    expect.stringContaining("empty-task-state-cat.png"),
+  );
+});
+
 it("waits for completion feedback before completing an Inbox task", async () => {
   vi.useFakeTimers();
   const onComplete = vi.fn();

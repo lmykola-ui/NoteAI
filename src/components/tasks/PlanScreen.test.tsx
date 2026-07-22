@@ -22,6 +22,16 @@ it("orders timed today tasks before untimed tasks", () => {
   expect(screen.getAllByRole("article").map((card) => card.getAttribute("aria-label"))).toEqual(["Раніше", "Без часу"]);
 });
 
+it("shows the empty Today prompt when nothing is scheduled", () => {
+  render(<PlanScreen tasks={[]} today="2026-07-19" {...actions} />);
+
+  expect(screen.getByText("Що сьогодні тобі треба зробити?")).toBeVisible();
+  expect(screen.getByAltText("")).toHaveAttribute(
+    "src",
+    expect.stringContaining("empty-task-state-cat.png"),
+  );
+});
+
 it("calculates today progress from every task scheduled for the day", () => {
   const tasks = [
     makeTask({ id: "one", scheduledDate: "2026-07-19", status: "completed" }),
