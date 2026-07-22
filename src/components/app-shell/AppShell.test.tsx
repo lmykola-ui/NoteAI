@@ -102,6 +102,26 @@ it("opens an overflow menu before showing history", async () => {
   expect(screen.getByRole("heading", { name: "Історія" })).toBeVisible();
 });
 
+it("moves cleared completed Today tasks to history", async () => {
+  const user = userEvent.setup();
+  const today = new Date().toLocaleDateString("en-CA");
+  const repository = createMemoryTaskRepository([
+    makeTask({ id: "first", title: "Перша виконана", scheduledDate: today, scheduledTime: "09:00", status: "completed" }),
+    makeTask({ id: "second", title: "Друга виконана", scheduledDate: today, scheduledTime: null, status: "completed" }),
+  ]);
+
+  render(<TaskProvider repository={repository}><AppShell /></TaskProvider>);
+
+  await user.click(screen.getByRole("button", { name: "Сьогодні" }));
+  await user.click(await screen.findByRole("button", { name: "Очистити" }));
+
+  expect(await screen.findByText("Запиши справи на сьогодні")).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Відкрити меню" }));
+  await user.click(screen.getByRole("menuitem", { name: "Історія" }));
+  expect(screen.getByText("Перша виконана")).toBeVisible();
+  expect(screen.getByText("Друга виконана")).toBeVisible();
+});
+
 it("edits a task from its card in the shared composer", async () => {
   const user = userEvent.setup();
   const repository = createMemoryTaskRepository([makeTask({ title: "Підготувати бриф", description: "До зустрічі" })]);

@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useRef, useState, type PointerEvent } from "react";
 import type { Task } from "@/features/tasks/domain/task";
+import { EmptyTaskState } from "./EmptyTaskState";
 import { TaskCard } from "./TaskCard";
 
 const LONG_PRESS_MS = 350;
@@ -189,7 +190,7 @@ export function InboxScreen({ tasks, today, onReorder, ...actions }: InboxScreen
           ) : null}
         </div>
       ) : (
-        <p className="empty-state">У Вхідних немає активних задач.</p>
+        <EmptyTaskState message="Запиши зараз, сплануй потім" />
       )}
     </section>
   );

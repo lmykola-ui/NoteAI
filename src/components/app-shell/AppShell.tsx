@@ -101,6 +101,15 @@ export function AppShell() {
           onComplete={completeWithUndo}
           onRestore={restoreTask}
           onEdit={setEditingTask}
+          onClearCompleted={async (completedTasks) => {
+            await Promise.all(
+              completedTasks.map((task) => updateTask({
+                ...task,
+                scheduledDate: null,
+                scheduledTime: null,
+              })),
+            );
+          }}
         />
       ) : null}
       {error ? <p role="alert" className="capture-error">{error}</p> : null}
