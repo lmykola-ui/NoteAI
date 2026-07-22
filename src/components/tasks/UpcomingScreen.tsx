@@ -87,11 +87,11 @@ export function UpcomingScreen({ tasks, today, ...actions }: Props) {
             {selected !== today ? (
               <button
                 type="button"
-                className="return-to-today"
+                className="return-to-today--icon-only"
                 aria-label="Повернутися до сьогодні"
                 onClick={() => setSelected(today)}
               >
-                <Sun size={16} strokeWidth={2.2} aria-hidden="true" />
+                <Sun size={20} strokeWidth={2} aria-hidden="true" />
               </button>
             ) : null}
           </div>
