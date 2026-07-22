@@ -49,6 +49,7 @@ type CaptureScreenProps = {
   voiceFirst?: boolean;
   onConfirmedSave?(): void;
   onTypedConfirmedSave?(): void;
+  onVoiceTasksCreated?(tasks: Task[]): void;
 };
 
 export function CaptureScreen({
@@ -56,6 +57,7 @@ export function CaptureScreen({
   voiceFirst = false,
   onConfirmedSave,
   onTypedConfirmedSave,
+  onVoiceTasksCreated,
 }: CaptureScreenProps) {
   const { addDrafts } = useTasks();
   const [text, setText] = useState("");
@@ -90,12 +92,13 @@ export function CaptureScreen({
   useEffect(() => {
     if (captureState.kind !== "created") return;
 
-    const timeout = window.setTimeout(() => {
-      setCaptureState({ kind: "editing" });
-    }, 3500);
+    const timeout = window.setTimeout(
+      () => onVoiceTasksCreated?.(captureState.tasks),
+      1500,
+    );
 
     return () => window.clearTimeout(timeout);
-  }, [captureState.kind]);
+  }, [captureState, onVoiceTasksCreated]);
 
   function changeText(value: string, transcriptMethod?: InputMethod) {
     if (transcriptMethod) {

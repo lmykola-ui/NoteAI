@@ -80,6 +80,14 @@ export function AppShell() {
             setVoiceFirst(false);
             setDestination("inbox");
           }}
+          onVoiceTasksCreated={(created) => {
+            const hasToday = created.some((task) => task.scheduledDate === today);
+            const hasScheduled = created.some((task) =>
+              Boolean(task.scheduledDate && task.scheduledDate > today),
+            );
+            setVoiceFirst(false);
+            setDestination(hasToday ? "plan" : hasScheduled ? "upcoming" : "inbox");
+          }}
           voiceFirst={voiceFirst}
         />
       ) : null}
