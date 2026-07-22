@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ListChecks } from "lucide-react";
 import { QuickPreview } from "@/components/preview/QuickPreview";
 import { VoiceRecorder } from "@/components/capture/VoiceRecorder";
+import { VoiceCreationResult } from "@/components/capture/VoiceCreationResult";
 import { parseText } from "@/features/capture/application/parseClient";
 import { trackSafeEvent } from "@/lib/analytics";
 import {
@@ -214,13 +215,10 @@ export function CaptureScreen({
   }
 
   if (captureState.kind === "created") {
-    const taskLabel = captureState.tasks.length === 1 ? "задачу" : "задачі";
-    const message = `Створено ${captureState.tasks.length} ${taskLabel}`;
-
     return (
       <section aria-label="Створення нотатки" className="capture-screen capture-screen--voice">
         <h1>Голосова нотатка</h1>
-        <p role="status" aria-label={message}>{message}</p>
+        <VoiceCreationResult tasks={captureState.tasks} today={toLocalDateKey(new Date())} />
       </section>
     );
   }
