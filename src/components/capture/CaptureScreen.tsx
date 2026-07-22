@@ -21,12 +21,14 @@ import { toLocalDateKey } from "@/features/tasks/domain/dateWindow";
 import type {
   InputMethod,
   ParseResult,
+  Task,
 } from "@/features/tasks/domain/task";
 
 type CaptureState =
   | { kind: "editing" }
   | { kind: "parsing" }
   | { kind: "preview"; result: ParseResult; saveError: string | null }
+  | { kind: "created"; tasks: Task[] }
   | { kind: "cleanup-error"; message: string }
   | { kind: "error"; message: string };
 
@@ -82,6 +84,16 @@ export function CaptureScreen({
     };
   }, []);
 
+  useEffect(() => {
+    if (captureState.kind !== "created") return;
+
+    const timeout = window.setTimeout(() => {
+      setCaptureState({ kind: "editing" });
+    }, 3500);
+
+    return () => window.clearTimeout(timeout);
+  }, [captureState.kind]);
+
   function changeText(value: string, transcriptMethod?: InputMethod) {
     if (transcriptMethod) {
       setInputMethod(transcriptMethod);
@@ -112,7 +124,11 @@ export function CaptureScreen({
         inputMethod: captureInputMethod,
       });
       assertOnline();
-      setCaptureState({ kind: "preview", result, saveError: null });
+      if (voiceFirst) {
+        await saveVoiceTasks(result);
+      } else {
+        setCaptureState({ kind: "preview", result, saveError: null });
+      }
     } catch (error) {
       if (isOfflineError(error) || !isOnlineNow()) {
         setCaptureState({ kind: "editing" });
@@ -150,6 +166,28 @@ export function CaptureScreen({
     await clearConfirmedDraft();
   }
 
+  async function saveVoiceTasks(result: ParseResult) {
+    if (result.clarification) {
+      setCaptureState({ kind: "error", message: parseErrorMessage });
+      return;
+    }
+
+    try {
+      await pendingDraftWrite.current;
+      const created = await addDrafts(result.tasks);
+      window.dispatchEvent(new Event("noteai:local-data-ready"));
+      trackSafeEvent("capture_confirmed");
+      onConfirmedSave?.();
+      await clearCaptureDraft();
+      setText("");
+      setInputMethod("text");
+      setDraftStorageError(null);
+      setCaptureState({ kind: "created", tasks: created });
+    } catch {
+      setCaptureState({ kind: "error", message: taskSaveErrorMessage });
+    }
+  }
+
   async function clearConfirmedDraft() {
     try {
       await clearCaptureDraft();
@@ -172,6 +210,18 @@ export function CaptureScreen({
         onCancel={() => setCaptureState({ kind: "editing" })}
         onConfirm={confirmTasks}
       />
+    );
+  }
+
+  if (captureState.kind === "created") {
+    const taskLabel = captureState.tasks.length === 1 ? "задачу" : "задачі";
+    const message = `Створено ${captureState.tasks.length} ${taskLabel}`;
+
+    return (
+      <section aria-label="Створення нотатки" className="capture-screen capture-screen--voice">
+        <h1>Голосова нотатка</h1>
+        <p role="status" aria-label={message}>{message}</p>
+      </section>
     );
   }
 
@@ -201,7 +251,7 @@ export function CaptureScreen({
       <p>{voiceFirst ? "Слухаю й одразу структурую вашу задачу." : "Напишіть або скажіть усе підряд, а ми перетворимо це на задачі."}</p>
       {voiceFirst ? (
         <div className="voice-capture-stage">
-          <div className="voice-preview-note"><ListChecks size={20} aria-hidden="true" /><span>Після запису покажу задачі для перевірки</span></div>
+          <div className="voice-preview-note"><ListChecks size={20} aria-hidden="true" /><span>Після запису одразу створю задачу</span></div>
           {isParsing ? <p className="voice-processing" role="status">Структурую задачі…</p> : <VoiceRecorder autoStart onTranscript={handleTranscript} disabled={!aiAvailable} />}
         </div>
       ) : (
