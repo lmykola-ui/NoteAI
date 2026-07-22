@@ -42,14 +42,24 @@ export function PlanScreen({ tasks, today, ...actions }: PlanScreenProps) {
     ? { src: "/progress-cats/0-25.png", label: "Емоція прогресу: 0–25%" }
     : progress <= 50
       ? { src: "/progress-cats/26-50.png", label: "Емоція прогресу: 26–50%" }
-      : { src: "/progress-cats/51-99.png", label: "Емоція прогресу: 51–99%" };
+      : progress < 100
+        ? { src: "/progress-cats/51-99.png", label: "Емоція прогресу: 51–99%" }
+        : { src: "/progress-cats/100.png", label: "Емоція прогресу: 100%" };
 
   return (
     <section className="task-screen" aria-label="Сьогодні">
       <h1>Сьогодні</h1>
       {selectedTasks.length ? (
         <>
-          {!allComplete ? (
+          {allComplete ? (
+            <section className="today-celebration" aria-live="polite">
+              <Image className="today-celebration-cat" src={cat.src} alt="" aria-hidden="true" width={92} height={92} />
+              <div>
+                <h2>Вітаємо!</h2>
+                <p>Сьогодні всі плани виконані</p>
+              </div>
+            </section>
+          ) : (
             <section className="today-status" aria-label={`Виконано ${progress}% задач на сьогодні`}>
               <div className="today-progress-panel">
                 <strong>{progress}%</strong>
@@ -61,7 +71,7 @@ export function PlanScreen({ tasks, today, ...actions }: PlanScreenProps) {
                 <Image className="today-emotion-cat" src={cat.src} alt={cat.label} width={82} height={82} />
               </div>
             </section>
-          ) : null}
+          )}
 
           {allComplete ? (
             <div className="today-completed-actions">
