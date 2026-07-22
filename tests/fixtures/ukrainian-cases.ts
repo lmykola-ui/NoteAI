@@ -30,6 +30,42 @@ function parserContractCase(
 
 export const ukrainianParserContractCases = [
   parserContractCase({
+    name: "keeps grouped shopping details in one task description",
+    input: "Треба сходити в магазин і купити каву, молоко та хліб",
+    today: "2026-07-22",
+    modelOutput: {
+      tasks: [
+        {
+          title: "Сходити в магазин",
+          description: "• Кава\n• Молоко\n• Хліб",
+          scheduledDate: null,
+          scheduledTime: null,
+          status: "active",
+          priority: null,
+        },
+      ],
+      clarification: null,
+    },
+  }),
+  parserContractCase({
+    name: "keeps grouped self-care steps in one task description",
+    input: "Зробити догляд за обличчям: вмитися, нанести сироватку і крем",
+    today: "2026-07-22",
+    modelOutput: {
+      tasks: [
+        {
+          title: "Зробити догляд за обличчям",
+          description: "• Вмитися\n• Нанести сироватку\n• Нанести крем",
+          scheduledDate: null,
+          scheduledTime: null,
+          status: "active",
+          priority: null,
+        },
+      ],
+      clarification: null,
+    },
+  }),
+  parserContractCase({
     name: "splits today, tomorrow, and completed language",
     input:
       "Молоко купити сьогодні, пошту глянути завтра, а рахунок я вже оплатив",
