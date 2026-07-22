@@ -16,6 +16,9 @@ type PlanScreenProps = {
 };
 
 export function comparePlanTasks(a: Task, b: Task): number {
+  if (a.status !== b.status) {
+    return a.status === "active" ? -1 : 1;
+  }
   if (a.scheduledTime && b.scheduledTime) {
     return a.scheduledTime.localeCompare(b.scheduledTime);
   }
