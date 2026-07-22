@@ -17,7 +17,7 @@ type TaskContextValue = {
   tasks: Task[];
   loading: boolean;
   error: string | null;
-  addDrafts(drafts: TaskDraft[]): Promise<void>;
+  addDrafts(drafts: TaskDraft[]): Promise<Task[]>;
   updateTask(task: Task): Promise<void>;
   completeTask(id: string): Promise<void>;
   restoreTask(id: string): Promise<void>;
@@ -121,6 +121,7 @@ export function TaskProvider({
           pendingMutations.current.push({ type: "add", tasks: created });
         }
         setTasks((current) => [...current, ...created]);
+        return created;
       },
       async updateTask(task) {
         await persistUpdate(task);

@@ -62,6 +62,21 @@ it("materializes and persists confirmed drafts", async () => {
   expect(saved).toHaveLength(1);
 });
 
+it("returns the task records it persists", async () => {
+  const { repository } = createRepository();
+  const { result } = renderTasks(repository);
+
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  let created!: Task[];
+  await act(async () => {
+    created = await result.current.addDrafts([draft]);
+  });
+
+  expect(created).toHaveLength(1);
+  expect(created[0]).toMatchObject({ title: draft.title, status: "active" });
+  expect(created[0]?.id).toEqual(expect.any(String));
+});
+
 it("signals offline initialization after hydrating existing tasks", async () => {
   const existingTask = makeTask({ title: "Вже збережена задача" });
   const { repository } = createRepository([existingTask]);

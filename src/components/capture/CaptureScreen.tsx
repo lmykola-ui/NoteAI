@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ListChecks } from "lucide-react";
 import { QuickPreview } from "@/components/preview/QuickPreview";
 import { VoiceRecorder } from "@/components/capture/VoiceRecorder";
+import { VoiceCreationResult } from "@/components/capture/VoiceCreationResult";
 import { parseText } from "@/features/capture/application/parseClient";
 import { trackSafeEvent } from "@/lib/analytics";
 import {
@@ -21,12 +22,14 @@ import { toLocalDateKey } from "@/features/tasks/domain/dateWindow";
 import type {
   InputMethod,
   ParseResult,
+  Task,
 } from "@/features/tasks/domain/task";
 
 type CaptureState =
   | { kind: "editing" }
   | { kind: "parsing" }
   | { kind: "preview"; result: ParseResult; saveError: string | null }
+  | { kind: "created"; tasks: Task[] }
   | { kind: "cleanup-error"; message: string }
   | { kind: "error"; message: string };
 
@@ -45,12 +48,16 @@ type CaptureScreenProps = {
   aiAvailable?: boolean;
   voiceFirst?: boolean;
   onConfirmedSave?(): void;
+  onTypedConfirmedSave?(): void;
+  onVoiceTasksCreated?(tasks: Task[]): void;
 };
 
 export function CaptureScreen({
   aiAvailable = true,
   voiceFirst = false,
   onConfirmedSave,
+  onTypedConfirmedSave,
+  onVoiceTasksCreated,
 }: CaptureScreenProps) {
   const { addDrafts } = useTasks();
   const [text, setText] = useState("");
@@ -82,6 +89,17 @@ export function CaptureScreen({
     };
   }, []);
 
+  useEffect(() => {
+    if (captureState.kind !== "created") return;
+
+    const timeout = window.setTimeout(
+      () => onVoiceTasksCreated?.(captureState.tasks),
+      1500,
+    );
+
+    return () => window.clearTimeout(timeout);
+  }, [captureState, onVoiceTasksCreated]);
+
   function changeText(value: string, transcriptMethod?: InputMethod) {
     if (transcriptMethod) {
       setInputMethod(transcriptMethod);
@@ -112,7 +130,11 @@ export function CaptureScreen({
         inputMethod: captureInputMethod,
       });
       assertOnline();
-      setCaptureState({ kind: "preview", result, saveError: null });
+      if (voiceFirst) {
+        await saveVoiceTasks(result);
+      } else {
+        setCaptureState({ kind: "preview", result, saveError: null });
+      }
     } catch (error) {
       if (isOfflineError(error) || !isOnlineNow()) {
         setCaptureState({ kind: "editing" });
@@ -138,6 +160,7 @@ export function CaptureScreen({
       window.dispatchEvent(new Event("noteai:local-data-ready"));
       trackSafeEvent("capture_confirmed");
       onConfirmedSave?.();
+      onTypedConfirmedSave?.();
     } catch {
       setCaptureState((current) =>
         current.kind === "preview"
@@ -148,6 +171,28 @@ export function CaptureScreen({
     }
 
     await clearConfirmedDraft();
+  }
+
+  async function saveVoiceTasks(result: ParseResult) {
+    if (result.clarification) {
+      setCaptureState({ kind: "error", message: parseErrorMessage });
+      return;
+    }
+
+    try {
+      await pendingDraftWrite.current;
+      const created = await addDrafts(result.tasks);
+      window.dispatchEvent(new Event("noteai:local-data-ready"));
+      trackSafeEvent("capture_confirmed");
+      onConfirmedSave?.();
+      await clearCaptureDraft();
+      setText("");
+      setInputMethod("text");
+      setDraftStorageError(null);
+      setCaptureState({ kind: "created", tasks: created });
+    } catch {
+      setCaptureState({ kind: "error", message: taskSaveErrorMessage });
+    }
   }
 
   async function clearConfirmedDraft() {
@@ -172,6 +217,15 @@ export function CaptureScreen({
         onCancel={() => setCaptureState({ kind: "editing" })}
         onConfirm={confirmTasks}
       />
+    );
+  }
+
+  if (captureState.kind === "created") {
+    return (
+      <section aria-label="Створення нотатки" className="capture-screen capture-screen--voice">
+        <h1>Голосова нотатка</h1>
+        <VoiceCreationResult tasks={captureState.tasks} today={toLocalDateKey(new Date())} />
+      </section>
     );
   }
 
@@ -201,7 +255,7 @@ export function CaptureScreen({
       <p>{voiceFirst ? "Слухаю й одразу структурую вашу задачу." : "Напишіть або скажіть усе підряд, а ми перетворимо це на задачі."}</p>
       {voiceFirst ? (
         <div className="voice-capture-stage">
-          <div className="voice-preview-note"><ListChecks size={20} aria-hidden="true" /><span>Після запису покажу задачі для перевірки</span></div>
+          <div className="voice-preview-note"><ListChecks size={20} aria-hidden="true" /><span>Після запису одразу створю задачу</span></div>
           {isParsing ? <p className="voice-processing" role="status">Структурую задачі…</p> : <VoiceRecorder autoStart onTranscript={handleTranscript} disabled={!aiAvailable} />}
         </div>
       ) : (
