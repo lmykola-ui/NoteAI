@@ -1,5 +1,6 @@
 type ModelTask = {
   title: string;
+  description?: string | null;
   scheduledDate: string | null;
   scheduledTime: string | null;
   status: "active" | "completed";
