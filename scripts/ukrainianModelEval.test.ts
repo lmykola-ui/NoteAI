@@ -113,6 +113,25 @@ it("rejects repeated shared context in atomic template titles", () => {
   expect(issues).toContain("task 3 title: contains repeated shared context");
 });
 
+it("rejects a nonblank description when the case requires no description", () => {
+  const definition = ukrainianModelEvalCases[13];
+  const issues = evaluateUkrainianModelCase(definition, {
+    tasks: [
+      {
+        title: "Сходити в магазин",
+        description: "unspecified",
+        scheduledDate: null,
+        scheduledTime: null,
+        status: "active",
+        priority: null,
+      },
+    ],
+    clarification: null,
+  });
+
+  expect(issues).toContain("task 1 description: expected null");
+});
+
 it("runs every case through a model-backed structured-output request", async () => {
   const parse = vi.fn();
   for (const definition of ukrainianParserContractCases) {

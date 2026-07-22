@@ -261,6 +261,7 @@ export const ukrainianModelEvalCases = [
     expected: {
       tasks: [
         expectedTask([["сход"], ["магазин"]], {
+          description: null,
           scheduledDate: null,
           scheduledTime: null,
           status: "active",
@@ -368,6 +369,14 @@ export function evaluateUkrainianModelCase(definition, actual) {
           `task ${taskNumber} description: expected one of [${alternatives.join(", ")}]`,
         );
       }
+    }
+
+    if (
+      expectedTaskDefinition.description === null &&
+      typeof actualTask.description === "string" &&
+      actualTask.description.trim().length > 0
+    ) {
+      issues.push(`task ${taskNumber} description: expected null`);
     }
 
     for (const forbiddenTerm of expectedTaskDefinition.forbiddenTitleTerms ?? []) {
