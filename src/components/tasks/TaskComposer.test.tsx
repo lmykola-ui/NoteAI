@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import { readFileSync } from "node:fs";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 import { TaskComposer } from "./TaskComposer";
@@ -66,6 +67,13 @@ it("keeps today available after clearing a date and uses neutral time actions", 
   await user.click(screen.getByRole("button", { name: "Без часу" }));
   expect(screen.getByRole("button", { name: "Застосувати час" })).toHaveClass("time-wheel-action");
   expect(screen.getAllByRole("button", { name: "Без часу" })[1]).toHaveClass("time-wheel-action");
+});
+
+it("does not clip the first date option on a standard-height screen", () => {
+  const styles = readFileSync("src/app/globals.css", "utf8");
+
+  expect(styles).toMatch(/\.task-composer \{[^}]*overflow-y: visible;/);
+  expect(styles).toContain("@media (max-height: 640px) { .task-composer { overflow-y: auto; } }");
 });
 
 it("saves a task for the day after tomorrow", async () => {
