@@ -180,7 +180,7 @@ export function InboxScreen({ tasks, today, onReorder, ...actions }: InboxScreen
                 onPointerUp={stopDragging}
                 onPointerCancel={cancelDragging}
               >
-                <TaskCard task={task} today={today} {...actions} />
+                <TaskCard task={task} today={today} {...actions} onComplete={() => undefined} onCompletionAnimationEnd={actions.onComplete} />
               </div>
             </Fragment>
           ))}

@@ -124,6 +124,7 @@ it("dismisses the completion undo message after three seconds", async () => {
   const completionButton = await screen.findByRole("button", { name: /Позначити.*виконаною/ });
   vi.useFakeTimers();
   await act(async () => { fireEvent.click(completionButton); await Promise.resolve(); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(360); });
   expect(screen.getByRole("status", { name: "Задача виконана" })).toBeVisible();
 
   act(() => { vi.advanceTimersByTime(3_000); });

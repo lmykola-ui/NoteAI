@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 import { makeTask } from "../../../tests/fixtures/taskFactory";
@@ -44,4 +44,16 @@ it("offers a quick return to today after selecting another date", async () => {
   await user.click(returnToToday);
 
   expect(screen.getByRole("button", { name: "Обрати 21 липень" })).toHaveAttribute("aria-pressed", "true");
+});
+
+it("waits for completion feedback before completing a scheduled task", async () => {
+  vi.useFakeTimers();
+  const task = makeTask({ id: "scheduled", scheduledDate: "2026-07-21" });
+  const onComplete = vi.fn();
+  render(<UpcomingScreen tasks={[task]} today="2026-07-21" {...actions} onComplete={onComplete} />);
+  fireEvent.click(screen.getByRole("button", { name: /Позначити.*виконаною/ }));
+  expect(onComplete).not.toHaveBeenCalled();
+  await act(async () => { await vi.advanceTimersByTimeAsync(360); });
+  expect(onComplete).toHaveBeenCalledWith(task.id);
+  vi.useRealTimers();
 });
