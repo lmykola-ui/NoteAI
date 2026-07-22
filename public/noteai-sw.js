@@ -1,4 +1,4 @@
-const SHELL_CACHE = "noteai-shell-v1";
+const SHELL_CACHE = "noteai-shell-v2";
 const PUBLIC_ASSET_PATHS = new Set(["/noteai-sw.js"]);
 
 function isAllowedShellUrl(url) {

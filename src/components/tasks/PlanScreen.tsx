@@ -63,14 +63,6 @@ export function PlanScreen({ tasks, today, ...actions }: PlanScreenProps) {
             </section>
           ) : null}
 
-          {(!allComplete || showCompleted) ? (
-            <div role={allComplete ? "list" : undefined} aria-label={allComplete ? "Виконані задачі сьогодні" : undefined} className="task-list today-task-list">
-              {selectedTasks.map((task) => (
-                <TaskCard key={task.id} task={task} today={today} {...actions} />
-              ))}
-            </div>
-          ) : null}
-
           {allComplete ? (
             <div className="today-completed-actions">
               <button type="button" className="today-completed-toggle" onClick={() => setRevealedDate((value) => value === today ? null : today)}>
@@ -79,6 +71,14 @@ export function PlanScreen({ tasks, today, ...actions }: PlanScreenProps) {
               <button type="button" className="today-completed-toggle" onClick={() => void actions.onClearCompleted?.(selectedTasks)}>
                 Очистити
               </button>
+            </div>
+          ) : null}
+
+          {(!allComplete || showCompleted) ? (
+            <div role={allComplete ? "list" : undefined} aria-label={allComplete ? "Виконані задачі сьогодні" : undefined} className="task-list today-task-list">
+              {selectedTasks.map((task) => (
+                <TaskCard key={task.id} task={task} today={today} {...actions} />
+              ))}
             </div>
           ) : null}
         </>

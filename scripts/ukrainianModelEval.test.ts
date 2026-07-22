@@ -21,15 +21,15 @@ it("uses the configured OpenAI model and falls back to gpt-5-nano", () => {
   expect(resolveUkrainianModel({ OPENAI_MODEL: "" })).toBe("gpt-5-nano");
 });
 
-it("evaluates the exact same eleven inputs as the mocked parser contract", () => {
-  expect(ukrainianModelEvalCases).toHaveLength(11);
+it("evaluates the exact same thirteen inputs as the mocked parser contract", () => {
+  expect(ukrainianModelEvalCases).toHaveLength(13);
   expect(ukrainianModelEvalCases.map(({ input, today }) => ({ input, today }))).toEqual(
     ukrainianParserContractCases.map(({ input, today }) => ({ input, today })),
   );
 });
 
 it("allows documented title wording variants while grading semantics exactly", () => {
-  const definition = ukrainianModelEvalCases[1];
+  const definition = ukrainianModelEvalCases[3];
   const issues = evaluateUkrainianModelCase(definition, {
     tasks: [
       {
@@ -47,7 +47,7 @@ it("allows documented title wording variants while grading semantics exactly", (
 });
 
 it("rejects semantic drift and invented tasks in the ambiguity case", () => {
-  const wrongTime = evaluateUkrainianModelCase(ukrainianModelEvalCases[1], {
+  const wrongTime = evaluateUkrainianModelCase(ukrainianModelEvalCases[3], {
     tasks: [
       {
         title: "Подзвонити лікарю",
@@ -59,7 +59,7 @@ it("rejects semantic drift and invented tasks in the ambiguity case", () => {
     ],
     clarification: null,
   });
-  const inventedTask = evaluateUkrainianModelCase(ukrainianModelEvalCases[5], {
+  const inventedTask = evaluateUkrainianModelCase(ukrainianModelEvalCases[7], {
     tasks: [
       {
         title: "Запланувати зустріч",
@@ -79,7 +79,7 @@ it("rejects semantic drift and invented tasks in the ambiguity case", () => {
 });
 
 it("rejects repeated shared context in atomic template titles", () => {
-  const definition = ukrainianModelEvalCases[10];
+  const definition = ukrainianModelEvalCases[12];
   const issues = evaluateUkrainianModelCase(definition, {
     tasks: [
       {
@@ -124,9 +124,9 @@ it("runs every case through a model-backed structured-output request", async () 
     model: "configured-model",
   });
 
-  expect(results).toHaveLength(11);
+  expect(results).toHaveLength(13);
   expect(results.every(({ issues }) => issues.length === 0)).toBe(true);
-  expect(parse).toHaveBeenCalledTimes(11);
+  expect(parse).toHaveBeenCalledTimes(13);
   expect(parse.mock.calls[0]?.[0]).toEqual(
     expect.objectContaining({
       model: "configured-model",
@@ -140,7 +140,7 @@ it("runs every case through a model-backed structured-output request", async () 
         {
           role: "user",
           content:
-            "Локальна дата: 2026-07-19\nЧасовий пояс: Europe/Warsaw\nНотатка: Молоко купити сьогодні, пошту глянути завтра, а рахунок я вже оплатив",
+            "Локальна дата: 2026-07-22\nЧасовий пояс: Europe/Warsaw\nНотатка: Треба сходити в магазин і купити каву, молоко та хліб",
         },
       ],
     }),

@@ -76,7 +76,7 @@ it("shows compact completed controls and clears only today's completed tasks", a
 
   expect(screen.getByRole("button", { name: "Сховати виконані (2)" })).toBeVisible();
   expect(screen.getByRole("list", { name: "Виконані задачі сьогодні" })).toBeVisible();
-
   await user.click(screen.getByRole("button", { name: "Очистити" }));
   expect(onClearCompleted).toHaveBeenCalledWith(tasks);
+  expect(screen.getByRole("button", { name: "Сховати виконані (2)" }).compareDocumentPosition(screen.getByRole("list", { name: "Виконані задачі сьогодні" }))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
 });

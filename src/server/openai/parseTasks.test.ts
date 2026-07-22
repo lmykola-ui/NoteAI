@@ -19,8 +19,8 @@ vi.mock("./usageDiagnostics", async (importOriginal) => {
 });
 
 describe("parseTasksWithClient", () => {
-  it("keeps the mocked Ukrainian parser contract at eleven cases", () => {
-    expect(ukrainianParserContractCases).toHaveLength(11);
+  it("keeps the mocked Ukrainian parser contract at thirteen cases", () => {
+    expect(ukrainianParserContractCases).toHaveLength(13);
   });
 
   it.each(ukrainianParserContractCases)(
@@ -133,6 +133,83 @@ describe("parseTasksWithClient", () => {
           inputMethod: "text",
         },
       ],
+    });
+  });
+
+  it("keeps a grouped shopping list in one task description", async () => {
+    const parse = vi.fn().mockResolvedValue({
+      output_parsed: {
+        tasks: [
+          {
+            title: "  Сходити в магазин  ",
+            description: "  • Кава\n• Молоко\n• Хліб  ",
+            scheduledDate: null,
+            scheduledTime: null,
+            status: "active",
+            priority: null,
+          },
+        ],
+        clarification: null,
+      },
+    });
+    const client = {
+      responses: { parse },
+    } as unknown as Parameters<typeof parseTasksWithClient>[0];
+
+    await expect(
+      parseTasksWithClient(client, {
+        text: "Треба сходити в магазин і купити каву, молоко та хліб",
+        today: "2026-07-22",
+        timeZone: "Europe/Warsaw",
+        inputMethod: "voice",
+      }),
+    ).resolves.toEqual({
+      tasks: [
+        {
+          title: "Сходити в магазин",
+          description: "• Кава\n• Молоко\n• Хліб",
+          scheduledDate: null,
+          scheduledTime: null,
+          status: "active",
+          priority: null,
+          inputMethod: "voice",
+        },
+      ],
+      clarification: null,
+    });
+  });
+
+  it("omits an unspecified description from a basic task", async () => {
+    const parse = vi.fn().mockResolvedValue({
+      output_parsed: {
+        tasks: [{
+          title: "Сходити в магазин",
+          description: " unspecified ",
+          scheduledDate: null,
+          scheduledTime: null,
+          status: "active",
+          priority: null,
+        }],
+        clarification: null,
+      },
+    });
+    const client = { responses: { parse } } as unknown as Parameters<typeof parseTasksWithClient>[0];
+
+    await expect(parseTasksWithClient(client, {
+      text: "Сходити в магазин",
+      today: "2026-07-22",
+      timeZone: "Europe/Warsaw",
+      inputMethod: "text",
+    })).resolves.toEqual({
+      tasks: [{
+        title: "Сходити в магазин",
+        scheduledDate: null,
+        scheduledTime: null,
+        status: "active",
+        priority: null,
+        inputMethod: "text",
+      }],
+      clarification: null,
     });
   });
 
