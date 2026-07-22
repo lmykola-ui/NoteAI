@@ -20,7 +20,8 @@ button, textarea, input { font: inherit; }
 .bottom-nav button { min-height: 58px; display: grid; place-items: center; gap: 4px; border: 0; border-radius: 16px; padding: 7px 4px; color: var(--color-muted); background: transparent; font-size: 13px; font-weight: 600; }
 .bottom-nav button[aria-current="page"] { color: var(--color-text); background: #292f34; }
 .nav-icon { display: grid; width: 20px; height: 20px; place-items: center; }
-.capture-screen, .quick-preview { display: grid; gap: 16px; }.capture-screen--voice { min-height: calc(100dvh - 192px); grid-template-rows: auto auto 1fr; }.voice-capture-stage { align-self: end; display: grid; gap: 16px; }.voice-preview-note { display: flex; align-items: center; gap: 9px; padding: 12px 14px; border: 1px solid #30363c; border-radius: 16px; color: #b9c0c4; background: #14181b; font-size: .92rem; }.voice-preview-note svg { color: #76a7ff; }.voice-processing { margin: 0; padding: 18px; border: 1px solid #30363c; border-radius: 20px; color: #eef0ec; background: #171b1f; text-align: center; }
+.capture-screen, .quick-preview { display: grid; gap: 16px; }.capture-screen--voice { min-height: calc(100dvh - 192px); grid-template-rows: auto auto 1fr; }.voice-capture-stage { align-self: end; display: grid; gap: 16px; }.voice-preview-note { display: flex; align-items: center; gap: 9px; padding: 12px 14px; border: 1px solid #30363c; border-radius: 16px; color: #b9c0c4; background: #14181b; font-size: .92rem; }.voice-preview-note svg { color: #76a7ff; }.voice-processing { margin: 0; padding: 18px; border: 1px solid #30363c; border-radius: 20px; color: #eef0ec; background: #171b1f; text-align: center; }.voice-creation-result { display: grid; align-content: start; gap: 12px; }.voice-creation-card { display: grid; gap: 6px; padding: 16px; border: 1px solid #30363c; border-radius: var(--radius-card); background: var(--color-surface); animation: voice-creation-card-in 380ms cubic-bezier(.22, 1, .36, 1) both; }.voice-creation-card strong { font-size: 1.05rem; }.voice-creation-card p { margin: 0; color: var(--color-muted); font-size: .9rem; }
+@keyframes voice-creation-card-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 .capture-screen h1, .quick-preview h2 { margin: 0; }
 .capture-screen > p { margin: 0; color: var(--color-muted); }
 .capture-input, .preview-card label { display: grid; gap: 6px; color: var(--color-muted); }
@@ -96,4 +97,5 @@ button, textarea, input { font: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .today-progress-fill, .today-task-list, .task-card { transition: none; }
   .task-card--completing { animation: none; }
+  .voice-creation-card { animation: none; }
 }
