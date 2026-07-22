@@ -62,6 +62,7 @@ const aiWireResultSchema = z.object({
     .array(
       z.object({
         title: z.string(),
+        description: z.string().nullable().optional(),
         scheduledDate: z.string().nullable(),
         scheduledTime: z.string().nullable(),
         status: z.enum(["active", "completed"]),
@@ -88,6 +89,7 @@ function normalizeAIResult(
   const tasks = output.tasks
     .flatMap((task) => {
       const title = task.title.trim().slice(0, 300);
+      const description = task.description?.trim().slice(0, 2_000);
       if (!title) {
         return [];
       }
@@ -95,6 +97,7 @@ function normalizeAIResult(
       return [
         {
           title,
+          ...(description ? { description } : {}),
           scheduledDate:
             task.scheduledDate && isCalendarDate(task.scheduledDate)
               ? task.scheduledDate
