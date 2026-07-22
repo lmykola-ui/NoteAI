@@ -12,6 +12,7 @@ type PlanScreenProps = {
   onComplete(id: string): void | Promise<void>;
   onRestore(id: string): void | Promise<void>;
   onEdit?(task: Task): void;
+  onClearCompleted?(tasks: Task[]): void | Promise<void>;
 };
 
 export function comparePlanTasks(a: Task, b: Task): number {
@@ -38,24 +39,14 @@ export function PlanScreen({ tasks, today, ...actions }: PlanScreenProps) {
     ? { src: "/progress-cats/0-25.png", label: "Емоція прогресу: 0–25%" }
     : progress <= 50
       ? { src: "/progress-cats/26-50.png", label: "Емоція прогресу: 26–50%" }
-      : progress < 100
-        ? { src: "/progress-cats/51-99.png", label: "Емоція прогресу: 51–99%" }
-        : { src: "/progress-cats/100.png", label: "Емоція прогресу: 100%" };
+      : { src: "/progress-cats/51-99.png", label: "Емоція прогресу: 51–99%" };
 
   return (
     <section className="task-screen" aria-label="Сьогодні">
       <h1>Сьогодні</h1>
       {selectedTasks.length ? (
         <>
-          {allComplete ? (
-            <section className="today-celebration" aria-live="polite">
-              <Image className="today-celebration-cat" src={cat.src} alt="" aria-hidden="true" width={92} height={92} />
-              <div>
-                <h2>Вітаємо!</h2>
-                <p>Сьогодні всі плани виконані</p>
-              </div>
-            </section>
-          ) : (
+          {!allComplete ? (
             <section className="today-status" aria-label={`Виконано ${progress}% задач на сьогодні`}>
               <div className="today-progress-panel">
                 <strong>{progress}%</strong>
@@ -67,7 +58,7 @@ export function PlanScreen({ tasks, today, ...actions }: PlanScreenProps) {
                 <Image className="today-emotion-cat" src={cat.src} alt={cat.label} width={82} height={82} />
               </div>
             </section>
-          )}
+          ) : null}
 
           {(!allComplete || showCompleted) ? (
             <div role={allComplete ? "list" : undefined} aria-label={allComplete ? "Виконані задачі сьогодні" : undefined} className="task-list today-task-list">
@@ -78,13 +69,18 @@ export function PlanScreen({ tasks, today, ...actions }: PlanScreenProps) {
           ) : null}
 
           {allComplete ? (
-            <button type="button" className="today-completed-toggle" onClick={() => setRevealedDate((value) => value === today ? null : today)}>
-              {showCompleted ? `Сховати виконані (${completedCount})` : `Показати виконані (${completedCount})`}
-            </button>
+            <div className="today-completed-actions">
+              <button type="button" className="today-completed-toggle" onClick={() => setRevealedDate((value) => value === today ? null : today)}>
+                {showCompleted ? `Сховати виконані (${completedCount})` : `Показати виконані (${completedCount})`}
+              </button>
+              <button type="button" className="today-completed-toggle" onClick={() => void actions.onClearCompleted?.(selectedTasks)}>
+                Очистити
+              </button>
+            </div>
           ) : null}
         </>
       ) : (
-        <EmptyTaskState message="Що сьогодні тобі треба зробити?" />
+        <EmptyTaskState message="Запиши справи на сьогодні" />
       )}
     </section>
   );

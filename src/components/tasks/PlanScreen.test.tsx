@@ -25,7 +25,7 @@ it("orders timed today tasks before untimed tasks", () => {
 it("shows the empty Today prompt when nothing is scheduled", () => {
   render(<PlanScreen tasks={[]} today="2026-07-19" {...actions} />);
 
-  expect(screen.getByText("Що сьогодні тобі треба зробити?")).toBeVisible();
+  expect(screen.getByText("Запиши справи на сьогодні")).toBeVisible();
   expect(screen.getByAltText("")).toHaveAttribute(
     "src",
     expect.stringContaining("empty-task-state-cat.png"),
@@ -47,22 +47,27 @@ it("calculates today progress from every task scheduled for the day", () => {
   expect(screen.getByRole("img", { name: "Емоція прогресу: 0–25%" })).toBeVisible();
 });
 
-it("celebrates completion and lets people reveal completed tasks", async () => {
+it("shows compact completed controls and clears only today's completed tasks", async () => {
   const user = userEvent.setup();
+  const onClearCompleted = vi.fn();
   const tasks = [
     makeTask({ id: "one", scheduledDate: "2026-07-19", status: "completed" }),
     makeTask({ id: "two", scheduledDate: "2026-07-19", status: "completed" }),
   ];
 
-  render(<PlanScreen tasks={tasks} today="2026-07-19" {...actions} />);
+  render(<PlanScreen tasks={tasks} today="2026-07-19" {...actions} onClearCompleted={onClearCompleted} />);
 
-  expect(screen.getByRole("heading", { name: "Вітаємо!" })).toBeVisible();
-  expect(screen.getByText("Сьогодні всі плани виконані")).toBeVisible();
+  expect(screen.queryByRole("heading", { name: "Вітаємо!" })).not.toBeInTheDocument();
+  expect(screen.queryByText("100%")).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Показати виконані (2)" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Очистити" })).toBeVisible();
   expect(screen.queryByRole("list", { name: "Виконані задачі сьогодні" })).not.toBeInTheDocument();
 
   await user.click(screen.getByRole("button", { name: "Показати виконані (2)" }));
 
   expect(screen.getByRole("button", { name: "Сховати виконані (2)" })).toBeVisible();
   expect(screen.getByRole("list", { name: "Виконані задачі сьогодні" })).toBeVisible();
+
+  await user.click(screen.getByRole("button", { name: "Очистити" }));
+  expect(onClearCompleted).toHaveBeenCalledWith(tasks);
 });
