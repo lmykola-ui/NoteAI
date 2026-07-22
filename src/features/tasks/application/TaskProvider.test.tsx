@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
+import { afterEach } from "vitest";
 import { makeTask } from "../../../../tests/fixtures/taskFactory";
 import type { Task, TaskDraft } from "../domain/task";
 import type { TaskRepository } from "../infrastructure/TaskRepository";
@@ -13,6 +14,10 @@ const draft: TaskDraft = {
   priority: null,
   inputMethod: "text",
 };
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 function createRepository(initial: Task[] = []) {
   const saved = [...initial];
@@ -91,6 +96,50 @@ it("signals offline initialization after hydrating existing tasks", async () => 
 
   unmount();
   window.removeEventListener("noteai:local-data-ready", onLocalDataReady);
+});
+
+it("removes only completed tasks older than 30 days during hydration", async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-07-22T12:00:00.000Z"));
+  const expired = makeTask({
+    id: "expired",
+    status: "completed",
+    completedAt: "2026-06-22T11:59:59.999Z",
+  });
+  const retained = makeTask({
+    id: "retained",
+    status: "completed",
+    completedAt: "2026-06-22T12:00:00.000Z",
+  });
+  const active = makeTask({ id: "active" });
+  const { repository, saved } = createRepository([expired, retained, active]);
+  const { result } = renderTasks(repository);
+
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+
+  expect(result.current.loading).toBe(false);
+  expect(result.current.tasks).toEqual([retained, active]);
+  expect(saved).toEqual([retained, active]);
+});
+
+it("clears every completed task without deleting active tasks", async () => {
+  const completed = makeTask({
+    id: "completed",
+    status: "completed",
+    completedAt: "2026-07-22T09:00:00.000Z",
+  });
+  const active = makeTask({ id: "active" });
+  const { repository, saved } = createRepository([completed, active]);
+  const { result } = renderTasks(repository);
+
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  await act(() => result.current.clearCompletedTasks());
+
+  expect(result.current.tasks).toEqual([active]);
+  expect(saved).toEqual([active]);
 });
 
 it("keeps drafts added before a stale initial load resolves", async () => {
