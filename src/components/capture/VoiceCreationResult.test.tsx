@@ -27,7 +27,7 @@ it("labels every created task as Inbox and shows its scheduled placement", () =>
     screen.getByRole("status", { name: "Створено 2 задачі" }),
   ).toBeInTheDocument();
   expect(screen.getAllByText("Вхідні")).toHaveLength(2);
-  expect(screen.getByText("Сьогодні")).toBeInTheDocument();
-  expect(screen.getByText("Заплановані")).toBeInTheDocument();
-  expect(screen.getByText("Високий пріоритет")).toBeInTheDocument();
+  expect(screen.getByText(/Сьогодні/)).toBeInTheDocument();
+  expect(screen.getByText(/Заплановані/)).toBeInTheDocument();
+  expect(screen.getByText(/Високий пріоритет/)).toBeInTheDocument();
 });

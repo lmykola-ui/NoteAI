@@ -75,8 +75,8 @@ export function AppShell() {
       {!historyOpen && !utilityScreen && destination === "capture" ? (
         <CaptureScreen
           aiAvailable={isOnline}
-          onConfirmedSave={() => {
-            requestPersistenceAfterFirstSave();
+          onConfirmedSave={requestPersistenceAfterFirstSave}
+          onTypedConfirmedSave={() => {
             setVoiceFirst(false);
             setDestination("inbox");
           }}

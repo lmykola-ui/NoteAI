@@ -48,12 +48,14 @@ type CaptureScreenProps = {
   aiAvailable?: boolean;
   voiceFirst?: boolean;
   onConfirmedSave?(): void;
+  onTypedConfirmedSave?(): void;
 };
 
 export function CaptureScreen({
   aiAvailable = true,
   voiceFirst = false,
   onConfirmedSave,
+  onTypedConfirmedSave,
 }: CaptureScreenProps) {
   const { addDrafts } = useTasks();
   const [text, setText] = useState("");
@@ -155,6 +157,7 @@ export function CaptureScreen({
       window.dispatchEvent(new Event("noteai:local-data-ready"));
       trackSafeEvent("capture_confirmed");
       onConfirmedSave?.();
+      onTypedConfirmedSave?.();
     } catch {
       setCaptureState((current) =>
         current.kind === "preview"
